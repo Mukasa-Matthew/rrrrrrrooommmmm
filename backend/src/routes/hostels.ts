@@ -11,11 +11,18 @@ const router = express.Router();
 // Get all hostels
 router.get('/', async (req, res) => {
   try {
-    const hostels = await HostelModel.findAll();
-    res.json({
-      success: true,
-      data: hostels
-    });
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+    const limitRaw = Math.max(1, parseInt((req.query.limit as string) || '20', 10));
+    const limit = Math.min(100, limitRaw);
+    const offset = (page - 1) * limit;
+    const sort = (req.query.sort as string) || 'name';
+    const order = ((req.query.order as string) || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    const sortable = new Set(['name','created_at','total_rooms']);
+    const sortCol = sortable.has(sort) ? sort : 'name';
+
+    const list = await pool.query(`SELECT id, name, address, status, created_at FROM hostels ORDER BY ${sortCol} ${order} LIMIT ${limit} OFFSET ${offset}`);
+    const totalRes = await pool.query('SELECT COUNT(*)::int AS total FROM hostels');
+    res.json({ success: true, data: list.rows, page, limit, total: totalRes.rows[0].total });
   } catch (error) {
     console.error('Get hostels error:', error);
     res.status(500).json({ 
@@ -339,3 +346,54 @@ router.post('/:id/resend-credentials', async (req, res) => {
 });
 
 export default router;
+
+// Admin summary for a hostel: primary admin and custodian count
+router.get('/:id/admin-summary', async (req, res) => {
+  try {
+    const hostelId = Number(req.params.id);
+    if (!Number.isFinite(hostelId)) return res.status(400).json({ success: false, message: 'Invalid hostel id' });
+
+    const adminRes = await pool.query(
+      `SELECT id, name, email, username, created_at FROM users WHERE hostel_id = $1 AND role = 'hostel_admin' ORDER BY created_at ASC LIMIT 1`,
+      [hostelId]
+    );
+    const hostelRes = await pool.query(
+      `SELECT name, address, contact_phone, contact_email FROM hostels WHERE id = $1`,
+      [hostelId]
+    );
+    const custodianRes = await pool.query(
+      `SELECT COUNT(*)::int AS cnt FROM custodians WHERE hostel_id = $1`,
+      [hostelId]
+    );
+
+    const admin = adminRes.rows[0] || null;
+    const hostel = hostelRes.rows[0] || null;
+    return res.json({
+      success: true,
+      data: admin ? {
+        admin_id: admin.id,
+        admin_name: admin.name,
+        admin_email: admin.email,
+        admin_username: admin.username || null,
+        admin_created_at: admin.created_at,
+        custodian_count: custodianRes.rows[0]?.cnt || 0,
+        contact_phone: hostel?.contact_phone || null,
+        contact_email: hostel?.contact_email || null,
+        address: hostel?.address || null
+      } : {
+        admin_id: null,
+        admin_name: 'Unknown',
+        admin_email: '-',
+        admin_username: null,
+        admin_created_at: null,
+        custodian_count: custodianRes.rows[0]?.cnt || 0,
+        contact_phone: hostel?.contact_phone || null,
+        contact_email: hostel?.contact_email || null,
+        address: hostel?.address || null
+      }
+    });
+  } catch (e) {
+    console.error('Admin summary error:', e);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});

@@ -86,29 +86,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   };
 
   return (
-    <aside className={cn("w-64 bg-gray-50 border-r min-h-screen flex flex-col", className)}>
+    <aside className={cn("fixed left-0 top-0 w-64 h-screen bg-white border-r border-slate-200 flex flex-col shadow-xl z-50", className)}>
       {/* Logo/Header */}
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-bold text-gray-900">LTS Portal</h2>
-        {getRoleLabel() && (
-          <p className="text-sm text-gray-600">{getRoleLabel()}</p>
-        )}
+      <div className="p-6 border-b border-slate-200 flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center">
+            <span className="text-lg font-bold text-white">R</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold brand-text">RooMio</h2>
+            {getRoleLabel() && (
+              <p className="text-sm text-slate-600">{getRoleLabel()}</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           return (
             <Button
               key={item.name}
               variant="ghost"
-              className="w-full justify-start text-left"
+              className="w-full justify-start text-left h-11 hover:bg-slate-100 hover:text-slate-900 text-slate-700 transition-colors"
               asChild
             >
               <a href={item.href} className="flex items-center space-x-3">
                 <Icon className="h-4 w-4" />
-                <span>{item.name}</span>
+                <span className="font-medium">{item.name}</span>
               </a>
             </Button>
           );
@@ -116,18 +123,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       </nav>
 
       {/* User Info & Logout */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t border-slate-200 flex-shrink-0">
         <div className="flex items-center space-x-3 mb-3">
-          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium text-purple-800">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-full flex items-center justify-center">
+            <span className="text-sm font-bold text-indigo-700">
               {user?.name?.split(' ').map(n => n[0]).join('') || 'MM'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
+            <p className="text-sm font-semibold text-slate-900 truncate">
               {user?.name || 'User'}
             </p>
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-xs text-slate-500 truncate">
               {user?.email || 'admin@example.com'}
             </p>
           </div>
@@ -135,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         <Button
           variant="outline"
           size="sm"
-          className="w-full"
+          className="w-full border-slate-200 hover:bg-slate-50 text-slate-700"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 mr-2" />

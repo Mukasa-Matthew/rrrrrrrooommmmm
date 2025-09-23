@@ -56,7 +56,7 @@ app.use(generalLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/hostels', writeLimiter, hostelRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/multi-tenant', analyticsRoutes);
+app.use('/api/multi-tenant', multiTenantAnalyticsRoutes);
 app.use('/api/universities', writeLimiter, universityRoutes);
 app.use('/api/auth-settings', writeLimiter, authSettingsRoutes);
 app.use('/api/custodians', writeLimiter, custodiansRoutes);

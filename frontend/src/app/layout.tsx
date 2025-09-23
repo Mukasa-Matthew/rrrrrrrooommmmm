@@ -15,10 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LTS Portal",
-  description: "Long Term Storage Portal",
+  title: "RooMio - Hostel Management Portal",
+  description: "Modern hostel management made simple",
   manifest: "/manifest.json",
-  themeColor: "#111827",
+};
+
+export const viewport = {
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({
@@ -30,7 +33,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#111827" />
+        <meta name="theme-color" content="#4f46e5" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

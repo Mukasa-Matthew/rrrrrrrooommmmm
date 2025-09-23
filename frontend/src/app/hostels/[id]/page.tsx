@@ -20,6 +20,17 @@ interface HostelOverview {
 }
 
 interface PaymentsSummary { total_collected: number; total_outstanding: number }
+interface AdminSummary {
+  admin_id: number | null;
+  admin_name: string;
+  admin_email: string;
+  admin_username: string | null;
+  admin_created_at: string | null;
+  custodian_count: number;
+  contact_phone: string | null;
+  contact_email: string | null;
+  address: string | null;
+}
 
 export default function HostelDetailsPage() {
   const params = useParams();
@@ -28,6 +39,7 @@ export default function HostelDetailsPage() {
 
   const [overview, setOverview] = useState<HostelOverview | null>(null);
   const [payments, setPayments] = useState<PaymentsSummary>({ total_collected: 0, total_outstanding: 0 });
+  const [admin, setAdmin] = useState<AdminSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -50,6 +62,11 @@ export default function HostelDetailsPage() {
       const p = await fetch(payUrl, { headers: { Authorization: `Bearer ${token}` } });
       const pData = await p.json();
       if (p.ok && pData.success) setPayments({ total_collected: Number(pData.data.total_collected || 0), total_outstanding: Number(pData.data.total_outstanding || 0) });
+
+      // Admin + custodians summary
+      const a = await fetch(`http://localhost:5000/api/hostels/${hostelId}/admin-summary`, { headers: { Authorization: `Bearer ${token}` } });
+      const aData = await a.json();
+      if (a.ok && aData.success) setAdmin(aData.data);
     } catch (e: any) {
       setError(e?.message || 'Failed to load hostel details');
     } finally {
@@ -124,6 +141,37 @@ export default function HostelDetailsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {admin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Hostel Admin</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="font-semibold">{admin.admin_name}</div>
+                  <div className="text-sm text-gray-600">{admin.admin_email}</div>
+                  {admin.admin_username && (
+                    <div className="text-xs text-gray-500">Username: {admin.admin_username}</div>
+                  )}
+                  {admin.admin_created_at && (
+                    <div className="text-xs text-gray-500">Admin since: {new Date(admin.admin_created_at).toLocaleDateString()}</div>
+                  )}
+                </div>
+                <div className="text-sm">
+                  {admin.contact_phone && <div>Phone: <span className="text-gray-700">{admin.contact_phone}</span></div>}
+                  {admin.contact_email && <div>Email: <span className="text-gray-700">{admin.contact_email}</span></div>}
+                  {admin.address && <div>Address: <span className="text-gray-700">{admin.address}</span></div>}
+                  <div className="mt-2 text-xs text-gray-500">Custodians: {admin.custodian_count}</div>
+                </div>
+              </div>
+              <div className="mt-3">
+                <a className="text-sm text-blue-600 hover:underline" href={`/hostel-admin/custodians?hostel_id=${hostelId}`}>View custodians</a>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );

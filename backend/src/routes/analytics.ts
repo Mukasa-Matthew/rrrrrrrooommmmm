@@ -182,6 +182,7 @@ router.get('/hostel/:id/overview', async (req, res) => {
       )
       SELECT 
         h.name as hostel_name,
+        (SELECT COUNT(*) FROM users u WHERE u.role = 'user' AND u.hostel_id = h.id) AS total_students,
         CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT total_rooms_from_rooms FROM rooms_agg) ELSE COALESCE(h.total_rooms,0) END AS total_rooms,
         CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT available_from_rooms FROM rooms_agg) ELSE COALESCE(h.available_rooms,0) END AS available_rooms,
         CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT occupied_from_rooms FROM rooms_agg) ELSE COALESCE(h.total_rooms - h.available_rooms,0) END AS occupied_rooms
@@ -199,6 +200,7 @@ router.get('/hostel/:id/overview', async (req, res) => {
     const rate = total > 0 ? Math.round((occupied / total) * 10000) / 100 : 0;
     res.json({ success: true, data: { 
       hostel_name: row.hostel_name,
+      total_students: Number(row.total_students || 0),
       total_rooms: total,
       available_rooms: Number(row.available_rooms || Math.max(total - occupied, 0)),
       occupied_rooms: occupied,

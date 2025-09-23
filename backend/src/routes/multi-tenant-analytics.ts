@@ -18,22 +18,35 @@ const getUserContext = (req: any) => {
 router.get('/platform/overview', async (req, res) => {
   try {
     const query = `
+      WITH rooms_agg AS (
+        SELECT COUNT(*) AS total_rooms_from_rooms,
+               COUNT(*) FILTER (WHERE status = 'available') AS available_from_rooms,
+               COUNT(*) FILTER (WHERE status = 'occupied') AS occupied_from_rooms
+        FROM rooms
+      )
       SELECT 
-        (SELECT COUNT(*) FROM universities WHERE status = 'active') as total_universities,
-        (SELECT COUNT(*) FROM hostels) as total_hostels,
-        (SELECT COUNT(*) FROM users WHERE role = 'user') as total_students,
-        (SELECT COUNT(*) FROM users WHERE role = 'hostel_admin') as total_hostel_admins,
-        (SELECT COUNT(*) FROM users WHERE role = 'university_admin') as total_university_admins,
-        (SELECT SUM(total_rooms) FROM hostels) as total_rooms,
-        (SELECT SUM(available_rooms) FROM hostels) as available_rooms,
-        (SELECT SUM(total_rooms - available_rooms) FROM hostels) as occupied_rooms,
+        (SELECT COUNT(*) FROM universities WHERE status = 'active') AS total_universities,
+        (SELECT COUNT(*) FROM hostels) AS total_hostels,
+        (SELECT COUNT(*) FROM users WHERE role = 'user') AS total_students,
+        (SELECT COUNT(*) FROM users WHERE role = 'hostel_admin') AS total_hostel_admins,
+        (SELECT COUNT(*) FROM users WHERE role = 'university_admin') AS total_university_admins,
+        CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 
+             THEN (SELECT total_rooms_from_rooms FROM rooms_agg) 
+             ELSE COALESCE(SUM(total_rooms),0) END AS total_rooms,
+        CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 
+             THEN (SELECT available_from_rooms FROM rooms_agg) 
+             ELSE COALESCE(SUM(available_rooms),0) END AS available_rooms,
+        CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 
+             THEN (SELECT occupied_from_rooms FROM rooms_agg) 
+             ELSE COALESCE(SUM(total_rooms - available_rooms),0) END AS occupied_rooms,
         CASE 
-          WHEN (SELECT SUM(total_rooms) FROM hostels) > 0 THEN 
-            ROUND((SUM(total_rooms - available_rooms)::numeric / SUM(total_rooms)::numeric) * 100, 2)
-          ELSE 0 
-        END as overall_occupancy_rate
-      FROM hostels
-    `;
+          WHEN (CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT total_rooms_from_rooms FROM rooms_agg) ELSE COALESCE(SUM(total_rooms),0) END) > 0 
+          THEN ROUND(((CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT occupied_from_rooms FROM rooms_agg) ELSE COALESCE(SUM(total_rooms - available_rooms),0) END)::numeric
+                /
+                (CASE WHEN (SELECT total_rooms_from_rooms FROM rooms_agg) > 0 THEN (SELECT total_rooms_from_rooms FROM rooms_agg) ELSE COALESCE(SUM(total_rooms),0) END)::numeric) * 100, 2)
+          ELSE 0
+        END AS overall_occupancy_rate
+      FROM hostels`;
     const result = await pool.query(query);
     
     res.json({

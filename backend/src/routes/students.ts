@@ -14,7 +14,10 @@ async function getHostelIdForUser(userId: number, role: string): Promise<number 
   }
   if (role === 'custodian') {
     const res = await pool.query('SELECT hostel_id FROM custodians WHERE user_id = $1', [userId]);
-    return res.rows[0]?.hostel_id || null;
+    const fromCustodians = res.rows[0]?.hostel_id || null;
+    if (fromCustodians) return fromCustodians;
+    const u = await UserModel.findById(userId);
+    return u?.hostel_id || null;
   }
   return null;
 }

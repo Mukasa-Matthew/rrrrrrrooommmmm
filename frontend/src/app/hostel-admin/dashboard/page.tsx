@@ -25,8 +25,9 @@ export default function HostelAdminDashboard() {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
         });
         const data = await res.json();
+        let totalStudents = 0;
         if (data?.success) {
-          setStats({ total_students: Number(data.data.total_students || 0) });
+          totalStudents = Number(data.data.total_students || 0);
         }
 
         const roomsRes = await fetch(`http://localhost:5000/api/rooms`, {
@@ -44,7 +45,13 @@ export default function HostelAdminDashboard() {
             total_collected: Number(paymentsData.data.total_collected || 0),
             total_outstanding: Number(paymentsData.data.total_outstanding || 0)
           });
+          // Fallback: infer students count from payments summary table if API provides it
+          if (!totalStudents && Array.isArray(paymentsData.data.students)) {
+            totalStudents = paymentsData.data.students.length;
+          }
         }
+
+        setStats({ total_students: totalStudents });
       } catch {
         // silent
       }

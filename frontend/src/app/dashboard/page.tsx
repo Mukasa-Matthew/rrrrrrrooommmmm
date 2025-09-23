@@ -35,6 +35,13 @@ export default function DashboardPage() {
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
+    if (hour < 17) return { text: 'Good afternoon', emoji: '🌤️' };
+    return { text: 'Good evening', emoji: '🌙' };
+  };
+
   useEffect(() => {
     if (user?.role === 'super_admin') {
       fetchPlatformStats();
@@ -108,21 +115,26 @@ export default function DashboardPage() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{getWelcomeMessage()}</h1>
-            <p className="text-gray-600">
-              Welcome back, {user?.name || 'Super Admin'}! Here&apos;s what&apos;s happening today.
+            <h1 className="text-4xl font-bold text-slate-900">{getWelcomeMessage()}</h1>
+            <p className="text-slate-600 mt-2 flex items-center gap-3 text-lg">
+              <span className="text-3xl" aria-hidden>
+                {getTimeGreeting().emoji}
+              </span>
+              <span>
+                {getTimeGreeting().text}, <span className="font-semibold text-slate-800">{user?.name?.split(' ')[0] || 'Super Admin'}</span>! Here&apos;s what&apos;s happening today.
+              </span>
             </p>
           </div>
           {user?.role === 'super_admin' && (
-            <Badge className="bg-purple-100 text-purple-800">
+            <Badge className="bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 border-indigo-200 px-4 py-2 text-sm font-semibold">
               SUPER ADMIN
             </Badge>
           )}
           {user?.role === 'hostel_admin' && (
-            <Badge className="bg-blue-100 text-blue-800">
+            <Badge className="bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 border-slate-200 px-4 py-2 text-sm font-semibold">
               HOSTEL ADMIN
             </Badge>
           )}
@@ -130,50 +142,58 @@ export default function DashboardPage() {
 
         {/* Platform Overview Stats for Super Admin */}
         {user?.role === 'super_admin' && platformStats && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Universities</CardTitle>
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-semibold text-slate-700">Universities</CardTitle>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5 text-indigo-600" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformStats.total_universities}</div>
-                <p className="text-xs text-muted-foreground">Onboarded universities</p>
+                <div className="text-3xl font-bold text-slate-900">{platformStats.total_universities}</div>
+                <p className="text-sm text-slate-500 mt-1">Onboarded universities</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="card-hover border-0 shadow-lg bg-white">
               <a href="/hostels" className="block group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Hostels</CardTitle>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-slate-700">Hostels</CardTitle>
+                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-slate-600" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold group-hover:underline">{platformStats.total_hostels}</div>
-                  <p className="text-xs text-muted-foreground">Across all universities</p>
+                  <div className="text-3xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{platformStats.total_hostels}</div>
+                  <p className="text-sm text-slate-500 mt-1">Across all universities</p>
                 </CardContent>
               </a>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Students</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-semibold text-slate-700">Students</CardTitle>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-indigo-600" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformStats.total_students}</div>
-                <p className="text-xs text-muted-foreground">Total students</p>
+                <div className="text-3xl font-bold text-slate-900">{platformStats.total_students}</div>
+                <p className="text-sm text-slate-500 mt-1">Total students</p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-semibold text-slate-700">Occupancy Rate</CardTitle>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-slate-600" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformStats.overall_occupancy_rate}%</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold text-slate-900">{platformStats.overall_occupancy_rate}%</div>
+                <p className="text-sm text-slate-500 mt-1">
                   {platformStats.occupied_rooms} of {platformStats.total_rooms} rooms
                 </p>
               </CardContent>
@@ -182,25 +202,27 @@ export default function DashboardPage() {
         )}
 
         {user?.role === 'super_admin' && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-slate-900">Quick Actions</CardTitle>
+                <CardDescription className="text-slate-600">
                   Available actions for Super Admin
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {quickActions.map((action) => {
                     const Icon = action.icon;
                     return (
-                      <Button key={action.name} variant="outline" className="w-full justify-start h-auto p-4" asChild>
-                        <a href={action.href} className="flex items-start space-x-3">
-                          <Icon className="h-4 w-4 mt-0.5" />
+                      <Button key={action.name} variant="outline" className="w-full justify-start h-auto p-4 border-slate-200 hover:bg-slate-50 hover:border-indigo-300 transition-all" asChild>
+                        <a href={action.href} className="flex items-start space-x-4">
+                          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center flex-shrink-0">
+                            <Icon className="h-5 w-5 text-indigo-600" />
+                          </div>
                           <div className="text-left">
-                            <div className="font-medium">{action.name}</div>
-                            <div className="text-xs text-muted-foreground">{action.description}</div>
+                            <div className="font-semibold text-slate-900">{action.name}</div>
+                            <div className="text-sm text-slate-500 mt-1">{action.description}</div>
                           </div>
                         </a>
                       </Button>
@@ -210,33 +232,35 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MapPin className="h-5 w-5" />
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center space-x-3 text-xl font-bold text-slate-900">
+                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-slate-600" />
+                  </div>
                   <span>Platform Overview</span>
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-slate-600">
                   Multi-tenant platform statistics
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Total Universities</span>
-                    <span className="text-lg font-bold">{platformStats?.total_universities || 0}</span>
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-sm font-semibold text-slate-700">Total Universities</span>
+                    <span className="text-2xl font-bold text-slate-900">{platformStats?.total_universities || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Total Hostels</span>
-                    <a href="/hostels" className="text-lg font-bold hover:underline">{platformStats?.total_hostels || 0}</a>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-sm font-semibold text-slate-700">Total Hostels</span>
+                    <a href="/hostels" className="text-2xl font-bold text-slate-900 hover:text-indigo-600 transition-colors">{platformStats?.total_hostels || 0}</a>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Total Students</span>
-                    <span className="text-lg font-bold">{platformStats?.total_students || 0}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-sm font-semibold text-slate-700">Total Students</span>
+                    <span className="text-2xl font-bold text-slate-900">{platformStats?.total_students || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Overall Occupancy</span>
-                    <span className="text-lg font-bold">{platformStats?.overall_occupancy_rate || 0}%</span>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm font-semibold text-slate-700">Overall Occupancy</span>
+                    <span className="text-2xl font-bold text-slate-900">{platformStats?.overall_occupancy_rate || 0}%</span>
                   </div>
                 </div>
               </CardContent>
