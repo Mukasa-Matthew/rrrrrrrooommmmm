@@ -14,10 +14,15 @@ export class EmailService {
   private static transporter: nodemailer.Transporter;
 
   static initialize() {
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    const secureFromEnv = (process.env.SMTP_SECURE || '').toLowerCase();
+    const secure = secureFromEnv === 'true' || port === 465; // auto-secure for 465
+
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
+      host,
+      port,
+      secure,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -303,6 +308,96 @@ export class EmailService {
         <div class="footer">
           <p>This email was sent automatically. Please do not reply to this email.</p>
           <p>© 2024 LTS Portal. All rights reserved.</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  static generatePaymentReceiptEmail(
+    studentName: string,
+    studentEmail: string,
+    amountPaid: number,
+    currency: string,
+    balanceAfter: number | null,
+    roomNumber: string | null,
+    roomType: string | null,
+    paidAt: string
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payment Receipt - LTS Portal</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #0ea5e9; color: white; padding: 24px; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 24px; border-radius: 0 0 10px 10px; }
+          .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .row:last-child { border-bottom: none; }
+          .label { color: #666; }
+          .value { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>Payment Receipt</h2>
+          <p>Hello ${studentName}, here are your payment details.</p>
+        </div>
+        <div class="content">
+          <div class="row"><span class="label">Student</span><span class="value">${studentName} (${studentEmail})</span></div>
+          <div class="row"><span class="label">Amount Paid</span><span class="value">${currency} ${amountPaid.toFixed(2)}</span></div>
+          <div class="row"><span class="label">Balance</span><span class="value">${currency} ${(balanceAfter ?? 0).toFixed(2)}</span></div>
+          <div class="row"><span class="label">Paid On</span><span class="value">${paidAt}</span></div>
+          ${roomNumber ? `<div class="row"><span class="label">Room</span><span class="value">${roomNumber}${roomType ? ` (${roomType})` : ''}</span></div>` : ''}
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  static generateStudentWelcomeEmail(
+    studentName: string,
+    studentEmail: string,
+    temporaryUsername: string,
+    temporaryPassword: string,
+    hostelName: string,
+    loginUrl: string
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to ${hostelName} - LTS Portal</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #16a34a; color: white; padding: 24px; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 24px; border-radius: 0 0 10px 10px; }
+          .box { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+          .row { display: flex; justify-content: space-between; padding: 6px 0; }
+          .label { color: #666; }
+          .value { font-weight: bold; }
+          .button { display:inline-block;background:#16a34a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;margin-top:12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>Welcome to ${hostelName}</h2>
+          <p>Your student account on LTS Portal is ready.</p>
+        </div>
+        <div class="content">
+          <p>Hello ${studentName},</p>
+          <p>Your student account has been created. Use the temporary credentials below to sign in and complete your profile.</p>
+          <div class="box">
+            <div class="row"><span class="label">Username/Email</span><span class="value">${temporaryUsername}</span></div>
+            <div class="row"><span class="label">Temporary Password</span><span class="value">${temporaryPassword}</span></div>
+          </div>
+          <p><strong>Important:</strong> Change your password after your first login.</p>
+          <a class="button" href="${loginUrl}">Go to Login</a>
         </div>
       </body>
       </html>

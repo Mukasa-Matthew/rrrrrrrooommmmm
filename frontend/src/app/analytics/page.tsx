@@ -147,8 +147,10 @@ export default function AnalyticsPage() {
                 <Building2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{overviewStats.total_hostels}</div>
-                <p className="text-xs text-muted-foreground">Onboarded hostels</p>
+                <a href="/hostels" className="block">
+                  <div className="text-2xl font-bold hover:underline">{overviewStats.total_hostels}</div>
+                  <p className="text-xs text-muted-foreground">Onboarded hostels</p>
+                </a>
               </CardContent>
             </Card>
 

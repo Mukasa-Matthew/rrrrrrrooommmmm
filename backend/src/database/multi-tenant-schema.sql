@@ -43,15 +43,12 @@ CREATE TABLE IF NOT EXISTS university_admins (
     UNIQUE(user_id, university_id)
 );
 
--- Insert default regions
+-- Insert default macro regions only
 INSERT INTO regions (name, country) VALUES 
-('Kampala', 'Uganda'),
-('Jinja', 'Uganda'),
-('Mbarara', 'Uganda'),
-('Gulu', 'Uganda'),
-('Masaka', 'Uganda'),
-('Mbale', 'Uganda'),
-('Arua', 'Uganda'),
+('Central', 'Uganda'),
+('Eastern', 'Uganda'),
+('Northern', 'Uganda'),
+('Western', 'Uganda'),
 ('Fort Portal', 'Uganda'),
 ('Lira', 'Uganda'),
 ('Soroti', 'Uganda')

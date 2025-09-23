@@ -2,39 +2,48 @@ import pool from '../config/database';
 
 export interface User {
   id: number;
+  username?: string;
   email: string;
   name: string;
   password: string;
-  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user';
+  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user' | 'custodian';
+  // Note: 'custodian' is also supported via DB, but typical user logins are admins/tenants.
   hostel_id?: number;
   created_at: Date;
   updated_at: Date;
 }
 
 export interface CreateUserData {
+  username?: string;
   email: string;
   name: string;
   password: string;
-  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user';
+  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user' | 'custodian';
   hostel_id?: number;
 }
 
 export class UserModel {
   static async create(userData: CreateUserData): Promise<User> {
-    const { email, name, password, role } = userData;
+    const { email, name, password, role, username } = userData;
     const query = `
-      INSERT INTO users (email, name, password, role, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
-      RETURNING id, email, name, role, created_at, updated_at
+      INSERT INTO users (email, name, password, role, username, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING id, email, name, role, username, created_at, updated_at
     `;
     
-    const result = await pool.query(query, [email, name, password, role]);
+    const result = await pool.query(query, [email, name, password, role, username || null]);
     return result.rows[0];
   }
 
   static async findByEmail(email: string): Promise<User | null> {
     const query = 'SELECT * FROM users WHERE email = $1';
     const result = await pool.query(query, [email]);
+    return result.rows[0] || null;
+  }
+
+  static async findByUsername(username: string): Promise<User | null> {
+    const query = 'SELECT * FROM users WHERE lower(username) = lower($1)';
+    const result = await pool.query(query, [username]);
     return result.rows[0] || null;
   }
 
@@ -51,7 +60,7 @@ export class UserModel {
   }
 
   static async findById(id: number): Promise<User | null> {
-    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1';
+    const query = 'SELECT id, email, name, role, hostel_id, created_at, updated_at FROM users WHERE id = $1';
     const result = await pool.query(query, [id]);
     return result.rows[0] || null;
   }

@@ -9,12 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import Turnstile from '@/components/Turnstile';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
   const { login, user, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -25,6 +27,8 @@ export default function LoginPage() {
         router.push('/dashboard');
       } else if (user.role === 'hostel_admin') {
         router.push('/hostel-admin/dashboard');
+      } else if ((user as any).role === 'custodian') {
+        router.push('/custodian/dashboard');
       } else {
         router.push('/dashboard');
       }
@@ -37,14 +41,17 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      // The login function will update the user state, and useEffect will handle the redirect
+      // @ts-ignore enhance login to accept captcha when backend requires it
+      await login(identifier, password, captchaToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
+  const isCaptchaEnabled = !!siteKey && process.env.NEXT_PUBLIC_DISABLE_TURNSTILE !== 'true';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -58,13 +65,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Email or Username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder="admin@example.com or adminuser"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
               />
             </div>
@@ -79,6 +86,13 @@ export default function LoginPage() {
                 required
               />
             </div>
+
+            {isCaptchaEnabled && (
+              <div>
+                <Label>Verification</Label>
+                <Turnstile siteKey={siteKey} onVerify={setCaptchaToken} />
+              </div>
+            )}
             
             {error && (
               <Alert variant="destructive">
@@ -86,7 +100,7 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || (isCaptchaEnabled && !captchaToken)}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign In
             </Button>

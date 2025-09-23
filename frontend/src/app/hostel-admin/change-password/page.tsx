@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Layout } from '@/components/layout/Layout';
-import { Loader2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, Eye, EyeOff, User as UserIcon } from 'lucide-react';
 
 export default function ChangePasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +26,8 @@ export default function ChangePasswordPage() {
     newPassword: '',
     confirmPassword: ''
   });
+
+  const [usernameForm, setUsernameForm] = useState({ newUsername: '' });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -99,13 +101,82 @@ export default function ChangePasswordPage() {
     }
   };
 
+  const handleUsernameChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!usernameForm.newUsername || usernameForm.newUsername.length < 3) {
+      setError('Username must be at least 3 characters long');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/change-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({ newUsername: usernameForm.newUsername.trim() })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to change username');
+      }
+      setSuccess('Username changed successfully!');
+      setUsernameForm({ newUsername: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change username');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Layout>
-      <div className="max-w-md mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Change Password</h1>
-          <p className="text-gray-600 mt-2">Update your password to keep your account secure</p>
+      <div className="max-w-md mx-auto space-y-8">
+        <div className="mb-2">
+          <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+          <p className="text-gray-600 mt-2">Update your username and password</p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <UserIcon className="h-5 w-5" />
+              <span>Change Username</span>
+            </CardTitle>
+            <CardDescription>
+              Set a new username to use for login
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUsernameChange} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {success && (
+                <Alert className="border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="newUsername">New Username</Label>
+                <Input
+                  id="newUsername"
+                  type="text"
+                  placeholder="your.new.username"
+                  value={usernameForm.newUsername}
+                  onChange={(e) => setUsernameForm({ newUsername: e.target.value })}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={isLoading} className="w-full">Change Username</Button>
+            </form>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

@@ -9,9 +9,11 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'lts_portal',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: parseInt(process.env.DB_POOL_MAX || '20'),
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'),
+  connectionTimeoutMillis: parseInt(process.env.DB_CONN_TIMEOUT_MS || '2000'),
+  statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT_MS || '15000'),
+  application_name: process.env.DB_APP_NAME || 'lts-portal',
 });
 
 // Test database connection

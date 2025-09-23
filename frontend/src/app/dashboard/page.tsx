@@ -143,14 +143,16 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Hostels</CardTitle>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{platformStats.total_hostels}</div>
-                <p className="text-xs text-muted-foreground">Across all universities</p>
-              </CardContent>
+              <a href="/hostels" className="block group">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Hostels</CardTitle>
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold group-hover:underline">{platformStats.total_hostels}</div>
+                  <p className="text-xs text-muted-foreground">Across all universities</p>
+                </CardContent>
+              </a>
             </Card>
 
             <Card>
@@ -226,7 +228,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Total Hostels</span>
-                    <span className="text-lg font-bold">{platformStats?.total_hostels || 0}</span>
+                    <a href="/hostels" className="text-lg font-bold hover:underline">{platformStats?.total_hostels || 0}</a>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Total Students</span>

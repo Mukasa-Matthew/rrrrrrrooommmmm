@@ -199,18 +199,29 @@ router.get('/hostel/:hostelId/overview', async (req, res) => {
     }
 
     const query = `
+      WITH room_counts AS (
+        SELECT 
+          h.id as hostel_id,
+          COUNT(*) FILTER (WHERE rm.status = 'occupied') as occupied_from_rooms,
+          COUNT(*) FILTER (WHERE rm.status = 'available') as available_from_rooms
+        FROM hostels h
+        LEFT JOIN rooms rm ON rm.hostel_id = h.id
+        WHERE h.id = $1
+        GROUP BY h.id
+      )
       SELECT 
         h.name as hostel_name,
         h.address,
         u.name as university_name,
         r.name as region_name,
         COUNT(CASE WHEN us.role = 'user' THEN us.id END) as total_students,
-        h.total_rooms,
-        h.available_rooms,
-        (h.total_rooms - h.available_rooms) as occupied_rooms,
+        COALESCE((SELECT occupied_from_rooms + available_from_rooms FROM room_counts), h.total_rooms) as total_rooms,
+        COALESCE((SELECT available_from_rooms FROM room_counts), h.available_rooms) as available_rooms,
+        COALESCE((SELECT occupied_from_rooms FROM room_counts), (h.total_rooms - h.available_rooms)) as occupied_rooms,
         CASE 
-          WHEN h.total_rooms > 0 THEN 
-            ROUND(((h.total_rooms - h.available_rooms)::numeric / h.total_rooms::numeric) * 100, 2)
+          WHEN COALESCE((SELECT occupied_from_rooms + available_from_rooms FROM room_counts), h.total_rooms) > 0 THEN 
+            ROUND((COALESCE((SELECT occupied_from_rooms FROM room_counts), (h.total_rooms - h.available_rooms))::numeric 
+              / COALESCE((SELECT occupied_from_rooms + available_from_rooms FROM room_counts), h.total_rooms)::numeric) * 100, 2)
           ELSE 0 
         END as occupancy_rate,
         h.status

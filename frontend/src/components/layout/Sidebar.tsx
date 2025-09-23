@@ -43,7 +43,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     if (user?.role === 'hostel_admin') {
       return [
         { name: 'Dashboard', href: '/hostel-admin/dashboard', icon: LayoutDashboard },
+        { name: 'Inventory', href: '/hostel-admin/inventory', icon: Building2 },
+        { name: 'Rooms', href: '/hostel-admin/rooms', icon: Building2 },
+        { name: 'Custodians', href: '/hostel-admin/custodians', icon: Building2 },
+        { name: 'Outstanding Balances', href: '/hostel-admin/outstanding', icon: BarChart3 },
+        { name: 'Financial Reports', href: '/hostel-admin/reports', icon: BarChart3 },
         { name: 'Change Password', href: '/hostel-admin/change-password', icon: LogOut },
+      ];
+    }
+
+    if ((user as any)?.role === 'custodian') {
+      return [
+        { name: 'Dashboard', href: '/custodian/dashboard', icon: LayoutDashboard },
+        { name: 'Students', href: '/custodian/students', icon: GraduationCap },
+        { name: 'Inventory', href: '/custodian/inventory', icon: Building2 },
+        { name: 'Expenses', href: '/custodian/expenses', icon: BarChart3 },
+        { name: 'Transactions', href: '/custodian/transactions', icon: BarChart3 },
+        { name: 'Outstanding Balances', href: '/custodian/outstanding', icon: BarChart3 },
       ];
     }
 
@@ -54,12 +70,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   const navigationItems = getNavigationItems();
 
+  const getRoleLabel = () => {
+    switch (user?.role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'hostel_admin':
+        return 'Hostel Admin';
+      case 'tenant':
+        return 'Tenant';
+      case 'user':
+        return 'User';
+      default:
+        return '';
+    }
+  };
+
   return (
     <aside className={cn("w-64 bg-gray-50 border-r min-h-screen flex flex-col", className)}>
       {/* Logo/Header */}
       <div className="p-4 border-b">
         <h2 className="text-xl font-bold text-gray-900">LTS Portal</h2>
-        <p className="text-sm text-gray-600">Super Admin</p>
+        {getRoleLabel() && (
+          <p className="text-sm text-gray-600">{getRoleLabel()}</p>
+        )}
       </div>
 
       {/* Navigation */}
@@ -92,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
-              {user?.name || 'Super Admin'}
+              {user?.name || 'User'}
             </p>
             <p className="text-xs text-gray-500 truncate">
               {user?.email || 'admin@example.com'}

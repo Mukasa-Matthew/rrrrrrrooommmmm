@@ -3,74 +3,88 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { UserModel } from '../models/User';
 import { EmailService } from '../services/emailService';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
-// Login endpoint
+async function verifyTurnstile(token: string, remoteip?: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (process.env.DISABLE_TURNSTILE === 'true') return true; // Explicitly disabled
+  if (!secret) return true; // Skip if not configured
+  try {
+    const form = new URLSearchParams();
+    form.append('secret', secret);
+    form.append('response', token);
+    if (remoteip) form.append('remoteip', remoteip);
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString()
+    });
+    const data: any = await res.json();
+    return !!data.success;
+  } catch {
+    return false;
+  }
+}
+
+// Login endpoint (accepts email or username as identifier)
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password, cf_turnstile_token } = req.body as any;
+    if (!identifier || !password) return res.status(400).json({ success: false, message: 'Missing credentials' });
 
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
-      });
+    // Turnstile check (if configured)
+    const ok = await verifyTurnstile(cf_turnstile_token, req.ip);
+    if (!ok) return res.status(400).json({ success: false, message: 'Captcha verification failed' });
+
+    const userByEmail = await UserModel.findByEmail(identifier);
+    const user = userByEmail || await UserModel.findByUsername(identifier);
+    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
+    const token = jwt.sign({ userId: user.id, role: user.role, hostel_id: user.hostel_id || null }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '12h' });
+
+    res.json({ success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role, hostel_id: user.hostel_id || null } });
+  } catch (e) {
+    console.error('Login error:', e);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+// Change username
+router.post('/change-username', async (req, res) => {
+  try {
+    const { newUsername } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'No token provided' });
     }
 
-    // Find user by email
-    const user = await UserModel.findByEmail(email);
-    if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+    if (!newUsername || newUsername.length < 3 || newUsername.length > 30) {
+      return res.status(400).json({ success: false, message: 'Username must be 3-30 characters' });
     }
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+    // Verify token and get user
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as any;
+
+    // Check uniqueness (case-insensitive)
+    const existing = await UserModel.findByUsername(newUsername);
+    if (existing && existing.id !== decoded.userId) {
+      return res.status(400).json({ success: false, message: 'Username already taken' });
     }
 
-    // Generate JWT token
-    const payload = { 
-      userId: user.id, 
-      email: user.email, 
-      role: user.role 
-    };
-    const secret = process.env.JWT_SECRET || 'fallback_secret';
-    const options = { 
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-    };
-    
-    const token = jwt.sign(payload, secret, options as any);
+    const updated = await UserModel.update(decoded.userId, { username: newUsername });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
-    // Return user data (without password) and token
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role
-        },
-        token
-      }
-    });
-
+    res.json({ success: true, message: 'Username changed successfully', data: { username: updated.username } });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
-    });
+    console.error('Change username error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -105,7 +119,8 @@ router.get('/me', async (req, res) => {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role
+          role: user.role,
+          hostel_id: user.hostel_id || null
         }
       }
     });

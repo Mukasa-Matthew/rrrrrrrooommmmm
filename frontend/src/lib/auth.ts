@@ -13,14 +13,10 @@ export interface AuthState {
   isLoading: boolean;
 }
 
-export interface LoginResponse {
-  success: boolean;
-  message: string;
-  data: {
-    user: User;
-    token: string;
-  };
-}
+// Support both legacy { success, token, user } and new { success, data: { user, token } }
+export type LoginResponse =
+  | { success: boolean; message?: string; token: string; user: User }
+  | { success: boolean; message?: string; data: { user: User; token: string } };
 
 export interface UserResponse {
   success: boolean;
@@ -32,25 +28,38 @@ export interface UserResponse {
 const API_BASE_URL = 'http://localhost:5000/api';
 
 // Real authentication functions using backend API
-export const login = async (email: string, password: string): Promise<User> => {
+export const login = async (
+  identifier: string,
+  password: string,
+  cfTurnstileToken?: string
+): Promise<User> => {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password, cf_turnstile_token: cfTurnstileToken || undefined }),
   });
 
   const data: LoginResponse = await response.json();
 
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || 'Login failed');
+  if (!response.ok || !(data as any).success) {
+    const msg = (data as any)?.message || 'Login failed';
+    throw new Error(msg);
+  }
+
+  // Normalize shape
+  const token = (data as any).token ?? (data as any).data?.token;
+  const user = (data as any).user ?? (data as any).data?.user;
+
+  if (!token || !user) {
+    throw new Error('Malformed login response');
   }
 
   // Store token in localStorage
-  localStorage.setItem('auth_token', data.data.token);
-  
-  return data.data.user;
+  localStorage.setItem('auth_token', token);
+
+  return user as User;
 };
 
 export const logout = async (): Promise<void> => {
