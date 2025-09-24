@@ -166,6 +166,8 @@ router.post('/', async (req: Request, res) => {
         const sumRes = await pool.query('SELECT SUM(amount) as total_paid FROM payments WHERE user_id = $1', [createdUser.id]);
         const totalPaid = parseFloat(sumRes.rows[0]?.total_paid || '0');
         const balanceAfter = roomMeta.price != null ? Math.max(0, roomMeta.price - totalPaid) : null;
+        const hostelMeta = await pool.query('SELECT name FROM hostels WHERE id = $1', [hostelId]);
+        const hostelName = hostelMeta.rows[0]?.name || undefined;
         const html = EmailService.generatePaymentReceiptEmail(
           name,
           email,
@@ -174,7 +176,10 @@ router.post('/', async (req: Request, res) => {
           balanceAfter,
           roomMeta.room_number,
           roomMeta.room_type,
-          new Date().toLocaleString()
+          new Date().toLocaleString(),
+          hostelName,
+          currentUser.name,
+          'Registered by'
         );
         await EmailService.sendEmail({ to: email, subject: 'Payment Receipt - LTS Portal', html });
       } catch (e) {
@@ -272,10 +277,24 @@ router.post('/notify', async (req, res) => {
       recipients = r.rows;
     }
 
+    const hostelMeta = await pool.query('SELECT name FROM hostels WHERE id = $1', [hostelId]);
+    const hostelName = hostelMeta.rows[0]?.name || 'Your Hostel';
     let sent = 0;
     for (const rec of recipients) {
       try {
-        await EmailService.sendEmail({ to: rec.email, subject, html: `<p>Dear ${rec.name || 'Student'},</p><p>${message}</p><p>— LTS Portal</p>` });
+        const html = `
+          <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; color: #334155;">
+            <div style="background: #4f46e5; color: #fff; padding: 16px 20px; border-radius: 8px 8px 0 0;">
+              <h2 style="margin: 0; font-size: 18px;">${hostelName}</h2>
+              <div style="opacity: 0.95; font-size: 13px;">Important notification</div>
+            </div>
+            <div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+              <p>Dear ${rec.name || 'Student'},</p>
+              <p>${message}</p>
+              <p style="margin-top: 16px; font-size: 12px; color: #64748b;">This message was sent by ${hostelName}. Please do not reply to this email.</p>
+            </div>
+          </div>`;
+        await EmailService.sendEmail({ to: rec.email, subject: `[${hostelName}] ${subject}`, html });
         sent++;
       } catch (e) {
         // log and continue

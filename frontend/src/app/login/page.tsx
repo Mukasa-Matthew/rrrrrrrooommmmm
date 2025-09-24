@@ -54,7 +54,7 @@ export default function LoginPage() {
   const isCaptchaEnabled = !!siteKey && process.env.NEXT_PUBLIC_DISABLE_TURNSTILE !== 'true';
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center relative py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
            style={{
@@ -125,14 +125,14 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-black/20"></div>
       
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md space-y-8">
+      <div className="relative z-10 w-full max-w-sm sm:max-w-md space-y-6 sm:space-y-8">
         {/* Brand Header */}
         <div className="text-center">
-          <div className="mx-auto h-20 w-20 rounded-3xl gradient-bg flex items-center justify-center mb-6 shadow-2xl">
-            <span className="text-3xl font-bold text-white">R</span>
+          <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 rounded-3xl gradient-bg flex items-center justify-center mb-4 sm:mb-6 shadow-2xl">
+            <span className="text-2xl sm:text-3xl font-bold text-white">R</span>
           </div>
-          <h1 className="text-4xl font-bold text-white drop-shadow-lg">RooMio</h1>
-          <p className="text-slate-200 mt-3 text-lg font-medium">Modern Hostel Management</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white drop-shadow-lg">RooMio</h1>
+          <p className="text-slate-200 mt-2 sm:mt-3 text-base sm:text-lg font-medium">Modern Hostel Management</p>
         </div>
 
         <Card className="card-hover shadow-2xl border-0 bg-white/95 backdrop-blur-sm">

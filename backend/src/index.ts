@@ -17,6 +17,7 @@ import expensesRoutes from './routes/expenses';
 import universityRoutes from './routes/universities';
 import authSettingsRoutes from './routes/auth-settings';
 import custodiansRoutes from './routes/custodians';
+import subscriptionPlansRoutes from './routes/subscription-plans';
 import path from 'path';
 
 // Load environment variables
@@ -65,6 +66,7 @@ app.use('/api/students', writeLimiter, studentsRoutes);
 app.use('/api/payments', writeLimiter, paymentsRoutes);
 app.use('/api/inventory', writeLimiter, inventoryRoutes);
 app.use('/api/expenses', writeLimiter, expensesRoutes);
+app.use('/api/subscription-plans', writeLimiter, subscriptionPlansRoutes);
 
 // Static uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));

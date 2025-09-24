@@ -322,7 +322,10 @@ export class EmailService {
     balanceAfter: number | null,
     roomNumber: string | null,
     roomType: string | null,
-    paidAt: string
+    paidAt: string,
+    hostelName?: string,
+    performedByName?: string,
+    performedByLabel?: string
   ): string {
     return `
       <!DOCTYPE html>
@@ -330,7 +333,7 @@ export class EmailService {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment Receipt - LTS Portal</title>
+        <title>Payment Receipt${hostelName ? ' - ' + hostelName : ''}</title>
         <style>
           body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
           .header { background: #0ea5e9; color: white; padding: 24px; border-radius: 10px 10px 0 0; }
@@ -343,15 +346,17 @@ export class EmailService {
       </head>
       <body>
         <div class="header">
-          <h2>Payment Receipt</h2>
+          <h2>${hostelName ? hostelName + ' — ' : ''}Payment Receipt</h2>
           <p>Hello ${studentName}, here are your payment details.</p>
         </div>
         <div class="content">
+          ${hostelName ? `<div class="row"><span class="label">Hostel</span><span class="value">${hostelName}</span></div>` : ''}
           <div class="row"><span class="label">Student</span><span class="value">${studentName} (${studentEmail})</span></div>
           <div class="row"><span class="label">Amount Paid</span><span class="value">${currency} ${amountPaid.toFixed(2)}</span></div>
           <div class="row"><span class="label">Balance</span><span class="value">${currency} ${(balanceAfter ?? 0).toFixed(2)}</span></div>
           <div class="row"><span class="label">Paid On</span><span class="value">${paidAt}</span></div>
           ${roomNumber ? `<div class="row"><span class="label">Room</span><span class="value">${roomNumber}${roomType ? ` (${roomType})` : ''}</span></div>` : ''}
+          ${performedByName ? `<div class="row"><span class="label">${performedByLabel || 'Processed by'}</span><span class="value">${performedByName}</span></div>` : ''}
         </div>
       </body>
       </html>

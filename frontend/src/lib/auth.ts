@@ -3,8 +3,9 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user';
+  role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user' | 'custodian';
   hostel_id?: number;
+  profile_picture?: string | null;
 }
 
 export interface AuthState {

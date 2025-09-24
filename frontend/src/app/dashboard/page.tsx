@@ -17,6 +17,9 @@ import {
   TrendingUp,
   MapPin
 } from 'lucide-react';
+import { API_CONFIG, getAuthHeaders } from '@/config/api';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 
 interface PlatformStats {
   total_universities: number;
@@ -34,6 +37,9 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [expired, setExpired] = useState<any[]>([]);
+  const [expLoading, setExpLoading] = useState(false);
+  const [expError, setExpError] = useState('');
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -45,6 +51,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user?.role === 'super_admin') {
       fetchPlatformStats();
+      fetchExpired();
     } else {
       setIsLoading(false);
     }
@@ -52,11 +59,7 @@ export default function DashboardPage() {
 
   const fetchPlatformStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/multi-tenant/platform/overview', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
-      });
+      const response = await fetch(API_CONFIG.ENDPOINTS.ANALYTICS.PLATFORM_OVERVIEW, { headers: getAuthHeaders() });
       const data = await response.json();
       
       if (data.success) {
@@ -66,6 +69,39 @@ export default function DashboardPage() {
       console.error('Failed to fetch platform stats:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchExpired = async () => {
+    try {
+      setExpError('');
+      setExpLoading(true);
+      const res = await fetch(API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.EXPIRED, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to load expired');
+      setExpired(data.expiredSubscriptions || data.data || []);
+    } catch (e: any) {
+      setExpError(e?.message || 'Failed to load expired');
+    } finally {
+      setExpLoading(false);
+    }
+  };
+
+  const handleRenew = async (hostelId: number, planId: number) => {
+    try {
+      const res = await fetch(`${API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.RENEW_HOSTEL}/${hostelId}/renew`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ plan_id: planId, payment_method: 'manual' })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to renew');
+      await fetchExpired();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -116,11 +152,11 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900">{getWelcomeMessage()}</h1>
-            <p className="text-slate-600 mt-2 flex items-center gap-3 text-lg">
-              <span className="text-3xl" aria-hidden>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900">{getWelcomeMessage()}</h1>
+            <p className="text-slate-600 mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-base sm:text-lg">
+              <span className="text-2xl sm:text-3xl" aria-hidden>
                 {getTimeGreeting().emoji}
               </span>
               <span>
@@ -142,7 +178,7 @@ export default function DashboardPage() {
 
         {/* Platform Overview Stats for Super Admin */}
         {user?.role === 'super_admin' && platformStats && (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="card-hover border-0 shadow-lg bg-white">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-sm font-semibold text-slate-700">Universities</CardTitle>
@@ -202,7 +238,7 @@ export default function DashboardPage() {
         )}
 
         {user?.role === 'super_admin' && (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
             <Card className="card-hover border-0 shadow-lg bg-white">
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl font-bold text-slate-900">Quick Actions</CardTitle>
@@ -263,6 +299,41 @@ export default function DashboardPage() {
                     <span className="text-2xl font-bold text-slate-900">{platformStats?.overall_occupancy_rate || 0}%</span>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {user?.role === 'super_admin' && (
+          <div className="grid gap-4 sm:gap-6 grid-cols-1">
+            <Card className="card-hover border-0 shadow-lg bg-white">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold text-slate-900">Expired Subscriptions</CardTitle>
+                <CardDescription className="text-slate-600">Renew hostels whose subscriptions have expired</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {expError && (
+                  <Alert variant="destructive"><AlertDescription>{expError}</AlertDescription></Alert>
+                )}
+                {expLoading ? (
+                  <div className="text-sm text-slate-600">Loading...</div>
+                ) : expired.length === 0 ? (
+                  <div className="text-sm text-slate-600">No expired subscriptions</div>
+                ) : (
+                  <div className="space-y-3">
+                    {expired.map((row: any) => (
+                      <div key={row.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                        <div className="text-sm">
+                          <div className="font-semibold text-slate-900">{row.hostel_name || row.hostel_name?.name || row.hostel_name || row.hostel || 'Hostel #' + row.hostel_id}</div>
+                          <div className="text-slate-600">Plan: {row.plan_name} • Ended: {new Date(row.end_date).toLocaleDateString()}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" onClick={() => handleRenew(row.hostel_id, row.plan_id)}>Renew</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

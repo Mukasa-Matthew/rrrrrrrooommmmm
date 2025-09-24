@@ -9,6 +9,7 @@ export interface User {
   role: 'super_admin' | 'hostel_admin' | 'tenant' | 'user' | 'custodian';
   // Note: 'custodian' is also supported via DB, but typical user logins are admins/tenants.
   hostel_id?: number;
+  profile_picture?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -85,7 +86,7 @@ export class UserModel {
       UPDATE users 
       SET ${setClause}, updated_at = NOW()
       WHERE id = $1
-      RETURNING id, email, name, role, created_at, updated_at
+      RETURNING id, email, name, role, hostel_id, profile_picture, created_at, updated_at
     `;
     
     const result = await pool.query(query, [id, ...values]);

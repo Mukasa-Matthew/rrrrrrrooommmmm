@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { HostelModel, CreateHostelWithAdminData } from '../models/Hostel';
 import { UserModel } from '../models/User';
+import { HostelSubscriptionModel } from '../models/SubscriptionPlan';
 import { EmailService } from '../services/emailService';
 import { CredentialGenerator } from '../utils/credentialGenerator';
 import pool from '../config/database';
@@ -17,12 +18,96 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const sort = (req.query.sort as string) || 'name';
     const order = ((req.query.order as string) || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    const search = (req.query.search as string) || '';
+    const statusFilter = (req.query.status as string) || '';
     const sortable = new Set(['name','created_at','total_rooms']);
     const sortCol = sortable.has(sort) ? sort : 'name';
 
-    const list = await pool.query(`SELECT id, name, address, status, created_at FROM hostels ORDER BY ${sortCol} ${order} LIMIT ${limit} OFFSET ${offset}`);
-    const totalRes = await pool.query('SELECT COUNT(*)::int AS total FROM hostels');
-    res.json({ success: true, data: list.rows, page, limit, total: totalRes.rows[0].total });
+    // Build WHERE clause
+    let whereClause = '';
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (search) {
+      paramCount++;
+      whereClause += ` WHERE (h.name ILIKE $${paramCount} OR h.address ILIKE $${paramCount} OR u.name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+    }
+
+    if (statusFilter) {
+      paramCount++;
+      if (whereClause) {
+        whereClause += ` AND hs.status = $${paramCount}`;
+      } else {
+        whereClause += ` WHERE hs.status = $${paramCount}`;
+      }
+      params.push(statusFilter);
+    }
+
+    const query = `
+      SELECT 
+        h.id, h.name, h.address, h.status, h.created_at, h.total_rooms, h.available_rooms,
+        h.contact_phone, h.contact_email,
+        u.name as admin_name, u.email as admin_email,
+        hs.id as subscription_id, hs.status as subscription_status, hs.start_date, hs.end_date,
+        hs.amount_paid, sp.name as plan_name, sp.total_price,
+        (SELECT COUNT(*) FROM student_room_assignments sra JOIN rooms r ON sra.room_id = r.id WHERE r.hostel_id = h.id AND sra.status = 'active') as students_count
+      FROM hostels h
+      LEFT JOIN users u ON h.id = u.hostel_id AND u.role = 'hostel_admin'
+      LEFT JOIN hostel_subscriptions hs ON h.current_subscription_id = hs.id
+      LEFT JOIN subscription_plans sp ON hs.plan_id = sp.id
+      ${whereClause}
+      ORDER BY h.${sortCol} ${order}
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM hostels h
+      LEFT JOIN users u ON h.id = u.hostel_id AND u.role = 'hostel_admin'
+      LEFT JOIN hostel_subscriptions hs ON h.current_subscription_id = hs.id
+      ${whereClause}
+    `;
+
+    const [list, totalRes] = await Promise.all([
+      pool.query(query, params),
+      pool.query(countQuery, params)
+    ]);
+
+    // Transform the data
+    const transformedData = list.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      status: row.status,
+      created_at: row.created_at,
+      total_rooms: row.total_rooms,
+      available_rooms: row.available_rooms,
+      contact_phone: row.contact_phone,
+      contact_email: row.contact_email,
+      admin: row.admin_name ? {
+        name: row.admin_name,
+        email: row.admin_email
+      } : null,
+      subscription: row.subscription_id ? {
+        id: row.subscription_id,
+        plan_name: row.plan_name,
+        status: row.subscription_status,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        amount_paid: row.amount_paid,
+        total_price: row.total_price
+      } : null,
+      students_count: row.students_count
+    }));
+
+    res.json({ 
+      success: true, 
+      data: transformedData, 
+      page, 
+      limit, 
+      total: totalRes.rows[0].total 
+    });
   } catch (error) {
     console.error('Get hostels error:', error);
     res.status(500).json({ 
@@ -72,6 +157,7 @@ router.post('/', async (req, res) => {
       status,
       university_id,
       region_id,
+      subscription_plan_id,
       admin_name,
       admin_email,
       admin_phone,
@@ -79,10 +165,10 @@ router.post('/', async (req, res) => {
     }: CreateHostelWithAdminData = req.body;
 
     // Validate required fields
-    if (!name || !address || !total_rooms || !admin_name || !admin_email || !admin_phone || !admin_address) {
+    if (!name || !address || !total_rooms || !admin_name || !admin_email || !admin_phone || !admin_address || !subscription_plan_id) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Missing required fields' 
+        message: 'Missing required fields including subscription plan' 
       });
     }
 
@@ -134,6 +220,31 @@ router.post('/', async (req, res) => {
 
       // Update admin's hostel_id
       await client.query('UPDATE users SET hostel_id = $1 WHERE id = $2', [hostel.id, admin.id]);
+
+      // Create subscription for the hostel
+      const subscription = await HostelSubscriptionModel.create({
+        hostel_id: hostel.id,
+        plan_id: parseInt(subscription_plan_id),
+        start_date: new Date(),
+        end_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // Default 30 days, will be updated based on plan
+        amount_paid: 0, // Will be updated when payment is recorded
+        status: 'active',
+        payment_method: 'pending',
+        payment_reference: `PENDING-${hostel.id}-${Date.now()}`
+      });
+
+      // Update subscription end date based on plan duration
+      const planResult = await client.query('SELECT duration_months FROM subscription_plans WHERE id = $1', [subscription_plan_id]);
+      if (planResult.rows.length > 0) {
+        const durationMonths = planResult.rows[0].duration_months;
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + durationMonths);
+        
+        await client.query('UPDATE hostel_subscriptions SET end_date = $1 WHERE id = $2', [endDate, subscription.id]);
+      }
+
+      // Update hostel with current subscription
+      await client.query('UPDATE hostels SET current_subscription_id = $1 WHERE id = $2', [subscription.id, hostel.id]);
 
       await client.query('COMMIT');
 

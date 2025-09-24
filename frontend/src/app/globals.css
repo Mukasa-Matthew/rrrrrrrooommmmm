@@ -159,3 +159,41 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* PWA and Mobile Optimizations */
+@media (max-width: 768px) {
+  .card-hover:hover {
+    transform: none; /* Disable hover effects on mobile */
+  }
+  
+  /* Improve touch targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Better mobile spacing */
+  .space-y-8 > * + * {
+    margin-top: 1.5rem;
+  }
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  body {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Hide browser UI elements */
+  .pwa-hidden {
+    display: none;
+  }
+}
+
+/* Dark mode support for PWA */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.08 0.01 264);
+    --foreground: oklch(0.95 0 0);
+  }
+}

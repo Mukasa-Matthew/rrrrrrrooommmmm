@@ -5,6 +5,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { API_CONFIG, getAuthHeaders } from '@/config/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface HostelOverview {
   hostel_name: string;
@@ -32,6 +41,25 @@ interface AdminSummary {
   address: string | null;
 }
 
+interface SubscriptionPlan {
+  id: number;
+  name: string;
+  description?: string;
+  duration_months: number;
+  price_per_month: number;
+  total_price: number;
+}
+
+interface HostelSubscription {
+  id: number;
+  plan_id: number;
+  plan_name?: string;
+  start_date: string;
+  end_date: string;
+  status: 'active' | 'expired' | 'cancelled';
+  amount_paid?: number;
+}
+
 export default function HostelDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,6 +70,12 @@ export default function HostelDetailsPage() {
   const [admin, setAdmin] = useState<AdminSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscriptions, setSubscriptions] = useState<HostelSubscription[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', minimumFractionDigits: 0 }).format(amount);
 
@@ -53,20 +87,32 @@ export default function HostelDetailsPage() {
       if (!token || !hostelId) return;
 
       // Hostel overview
-      const o = await fetch(`http://localhost:5000/api/multi-tenant/hostel/${hostelId}/overview`, { headers: { Authorization: `Bearer ${token}` } });
+      const o = await fetch(`${API_CONFIG.ENDPOINTS.ANALYTICS.HOSTEL_OVERVIEW}/${hostelId}/overview`, { headers: getAuthHeaders() });
       const oData = await o.json();
       if (o.ok && oData.success) setOverview(oData.data);
 
       // Payments summary (super_admin can pass hostel_id explicitly)
-      const payUrl = `http://localhost:5000/api/payments/summary?hostel_id=${encodeURIComponent(String(hostelId))}`;
-      const p = await fetch(payUrl, { headers: { Authorization: `Bearer ${token}` } });
+      const payUrl = `${API_CONFIG.BASE_URL}/api/payments/summary?hostel_id=${encodeURIComponent(String(hostelId))}`;
+      const p = await fetch(payUrl, { headers: getAuthHeaders() });
       const pData = await p.json();
       if (p.ok && pData.success) setPayments({ total_collected: Number(pData.data.total_collected || 0), total_outstanding: Number(pData.data.total_outstanding || 0) });
 
       // Admin + custodians summary
-      const a = await fetch(`http://localhost:5000/api/hostels/${hostelId}/admin-summary`, { headers: { Authorization: `Bearer ${token}` } });
+      const a = await fetch(`${API_CONFIG.ENDPOINTS.HOSTELS.ADMIN_SUMMARY}/${hostelId}/admin-summary`, { headers: getAuthHeaders() });
       const aData = await a.json();
       if (a.ok && aData.success) setAdmin(aData.data);
+
+      // Plans
+      const plansRes = await fetch(API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.LIST, { headers: getAuthHeaders() });
+      const plansData = await plansRes.json();
+      const plansArray = plansData.plans || plansData.data || [];
+      setPlans(plansArray);
+
+      // Existing subscriptions for this hostel
+      const subsRes = await fetch(`${API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.HOSTEL_SUBSCRIPTIONS}/${hostelId}`, { headers: getAuthHeaders() });
+      const subsData = await subsRes.json();
+      const subsArray: HostelSubscription[] = subsData.subscriptions || subsData.data || [];
+      setSubscriptions(subsArray);
     } catch (e: any) {
       setError(e?.message || 'Failed to load hostel details');
     } finally {
@@ -75,6 +121,38 @@ export default function HostelDetailsPage() {
   };
 
   useEffect(() => { fetchData(); }, [hostelId]);
+
+  const latestSubscription = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+  const hasActiveSubscription = latestSubscription && latestSubscription.status === 'active' && new Date(latestSubscription.end_date) >= new Date();
+
+  const handleSubscribe = async () => {
+    setActionError('');
+    setActionSuccess('');
+    if (!selectedPlanId) {
+      setActionError('Please select a subscription plan');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.SUBSCRIBE_HOSTEL}/${hostelId}/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ plan_id: Number(selectedPlanId) })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to start subscription');
+      setActionSuccess('Subscription started successfully');
+      setSelectedPlanId('');
+      await fetchData();
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to start subscription');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -172,6 +250,60 @@ export default function HostelDetailsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Subscription Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {actionError && (
+              <Alert variant="destructive">
+                <AlertDescription>{actionError}</AlertDescription>
+              </Alert>
+            )}
+            {actionSuccess && (
+              <Alert className="border-green-200 bg-green-50">
+                <AlertDescription className="text-green-800">{actionSuccess}</AlertDescription>
+              </Alert>
+            )}
+
+            {hasActiveSubscription && latestSubscription ? (
+              <div className="text-sm text-gray-700">
+                <div>Plan: <span className="font-medium">{latestSubscription.plan_name || ''}</span></div>
+                <div>Start: {new Date(latestSubscription.start_date).toLocaleDateString()}</div>
+                <div>End: {new Date(latestSubscription.end_date).toLocaleDateString()}</div>
+                <div>Status: <span className="font-medium">{latestSubscription.status}</span></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-700">No active subscription. Start one below:</div>
+                <div className="max-w-md">
+                  <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subscription plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map(plan => (
+                        <SelectItem key={plan.id} value={String(plan.id)}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{plan.name}</span>
+                            <span className="text-xs text-gray-500">{plan.duration_months} months • UGX {plan.total_price.toLocaleString()}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Button onClick={handleSubscribe} disabled={submitting}>
+                    {submitting ? 'Starting...' : 'Start Subscription'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

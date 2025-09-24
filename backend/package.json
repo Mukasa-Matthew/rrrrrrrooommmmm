@@ -17,6 +17,8 @@
     "migrate:add-payments-assignments": "ts-node src/database/add-payments-assignments-migration.ts",
     "migrate:add-inventory": "ts-node src/database/add-inventory-migration.ts",
     "migrate:add-expenses": "ts-node src/database/add-expenses-migration.ts",
+    "setup:super-admin": "ts-node src/database/setup-super-admin.ts",
+    "migrate:subscription-plans": "ts-node src/database/add-subscription-plans-migration.ts",
     "purge": "ts-node src/debug/purge-hostels-and-admins.ts",
     "normalize-regions": "ts-node src/debug/normalize-regions.ts",
     "check-hostels": "ts-node src/debug/check-hostels.ts"

@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Layout } from '@/components/layout/Layout';
-import { Loader2, Building2, UserPlus, MapPin, GraduationCap } from 'lucide-react';
+import { Loader2, Building2, UserPlus, MapPin, GraduationCap, CreditCard } from 'lucide-react';
+import { API_CONFIG, getAuthHeaders } from '@/config/api';
 import {
   Select,
   SelectContent,
@@ -32,12 +33,23 @@ interface Region {
   country: string;
 }
 
+interface SubscriptionPlan {
+  id: number;
+  name: string;
+  description: string;
+  duration_months: number;
+  price_per_month: number;
+  total_price: number;
+  is_active: boolean;
+}
+
 export default function CreateHostelPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [universities, setUniversities] = useState<University[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const router = useRouter();
 
   // Hostel form data
@@ -51,7 +63,8 @@ export default function CreateHostelPage() {
     contact_email: '',
     status: 'active' as const,
     university_id: '',
-    region_id: ''
+    region_id: '',
+    subscription_plan_id: ''
   });
 
   // Admin form data
@@ -64,20 +77,17 @@ export default function CreateHostelPage() {
 
   useEffect(() => {
     fetchUniversitiesAndRegions();
+    fetchSubscriptionPlans();
   }, []);
 
   const fetchUniversitiesAndRegions = async () => {
     try {
       const [universitiesRes, regionsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/universities', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
+        fetch(API_CONFIG.ENDPOINTS.UNIVERSITIES.LIST, {
+          headers: getAuthHeaders()
         }),
-        fetch('http://localhost:5000/api/universities/regions/list', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
+        fetch(`${API_CONFIG.BASE_URL}/api/universities/regions/list`, {
+          headers: getAuthHeaders()
         })
       ]);
 
@@ -94,6 +104,21 @@ export default function CreateHostelPage() {
       }
     } catch (error) {
       console.error('Failed to fetch universities and regions:', error);
+    }
+  };
+
+  const fetchSubscriptionPlans = async () => {
+    try {
+      const response = await fetch(API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.LIST, {
+        headers: getAuthHeaders()
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setSubscriptionPlans(data.plans);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription plans:', error);
     }
   };
 
@@ -123,15 +148,20 @@ export default function CreateHostelPage() {
       return;
     }
 
+    if (!hostelData.subscription_plan_id) {
+      setError('Please select a subscription plan');
+      return;
+    }
+
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/hostels', {
+      const response = await fetch(API_CONFIG.ENDPOINTS.HOSTELS.CREATE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          ...getAuthHeaders()
         },
         body: JSON.stringify({
           ...hostelData,
@@ -392,6 +422,91 @@ export default function CreateHostelPage() {
                   <p className="text-sm text-blue-700 mt-1">
                     The hostel administrator will receive temporary login credentials via email. 
                     They will be required to change their password on first login.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Plan Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CreditCard className="h-5 w-5" />
+              <span>Subscription Plan</span>
+            </CardTitle>
+            <CardDescription>
+              Select a subscription plan for this hostel
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="subscription_plan_id">Subscription Plan *</Label>
+              <Select
+                value={hostelData.subscription_plan_id || undefined}
+                onValueChange={(value) => setHostelData(prev => ({ ...prev, subscription_plan_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subscription plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subscriptionPlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id.toString()}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{plan.name}</span>
+                        <span className="text-sm text-slate-500">
+                          {plan.duration_months} months - UGX {plan.total_price.toLocaleString()}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {hostelData.subscription_plan_id && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                {(() => {
+                  const selectedPlan = subscriptionPlans.find(plan => plan.id.toString() === hostelData.subscription_plan_id);
+                  if (!selectedPlan) return null;
+                  
+                  return (
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-900">{selectedPlan.name}</h4>
+                      <p className="text-sm text-slate-600">{selectedPlan.description}</p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-slate-500">Duration:</span>
+                          <span className="ml-2 font-medium">{selectedPlan.duration_months} months</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Per Month:</span>
+                          <span className="ml-2 font-medium">UGX {selectedPlan.price_per_month.toLocaleString()}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500">Total Price:</span>
+                          <span className="ml-2 font-bold text-lg text-indigo-600">
+                            UGX {selectedPlan.total_price.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-2">
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-white text-xs">i</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-900">Subscription Information</h4>
+                  <p className="text-sm text-blue-700 mt-1">
+                    The selected subscription plan will be activated immediately upon hostel creation. 
+                    Payment can be recorded after the hostel is created.
                   </p>
                 </div>
               </div>

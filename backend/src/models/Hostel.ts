@@ -38,6 +38,7 @@ export interface CreateHostelWithAdminData extends CreateHostelData {
   admin_email: string;
   admin_phone: string;
   admin_address: string;
+  subscription_plan_id: string;
 }
 
 export class HostelModel {

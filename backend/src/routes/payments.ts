@@ -76,8 +76,10 @@ router.post('/', async (req: Request, res) => {
       summaryCache.delete(hostelId);
     }
 
-    // Email receipt
+    // Email receipt (hostel-branded)
     const s = student.rows[0];
+    const hostelMeta = await pool.query('SELECT name FROM hostels WHERE id = $1', [hostelId]);
+    const hostelName = hostelMeta.rows[0]?.name || undefined;
     const html = EmailService.generatePaymentReceiptEmail(
       s.name,
       s.email,
@@ -86,7 +88,10 @@ router.post('/', async (req: Request, res) => {
       balanceAfter,
       room?.room_number || null,
       room?.room_type || null,
-      new Date(payRes.rows[0].created_at).toLocaleString()
+      new Date(payRes.rows[0].created_at).toLocaleString(),
+      hostelName,
+      currentUser.name,
+      'Cleared by'
     );
     // Send receipt
     await EmailService.sendEmail({ to: s.email, subject: 'Payment Receipt - LTS Portal', html });
@@ -101,7 +106,10 @@ router.post('/', async (req: Request, res) => {
         0,
         room?.room_number || null,
         room?.room_type || null,
-        new Date(payRes.rows[0].created_at).toLocaleString()
+        new Date(payRes.rows[0].created_at).toLocaleString(),
+        hostelName,
+        currentUser.name,
+        'Cleared by'
       );
       await EmailService.sendEmail({ to: s.email, subject: 'Payment Completed - LTS Portal', html: completionHtml });
     }
