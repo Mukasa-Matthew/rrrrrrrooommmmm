@@ -128,6 +128,23 @@ function CustodiansContent() {
     }
   };
 
+  const resendCredentials = async (id: number) => {
+    if (!confirm('Resend new credentials to this custodian?')) return;
+    try {
+      const base = API_CONFIG?.CUSTODIANS?.RESEND_CREDENTIALS || 'http://localhost:5000/api/custodians';
+      const url = `${base}/${id}/resend-credentials` + (hostelId ? `?hostel_id=${hostelId}` : '');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to resend credentials');
+      await fetchCustodians();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to resend credentials');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Custodians</h1>
@@ -203,6 +220,7 @@ function CustodiansContent() {
                         const location = prompt('Update location', c.location) || undefined;
                         updateCustodian(c.id, { name, phone, location });
                       }}>Edit</Button>
+                      <Button variant="outline" size="sm" onClick={() => resendCredentials(c.id)}>Resend Credentials</Button>
                       <Button variant="destructive" size="sm" onClick={() => deleteCustodian(c.id)}>Delete</Button>
                     </div>
                   </div>

@@ -13,6 +13,7 @@ interface Room {
   price: number | string;
   description?: string;
   status: 'available' | 'occupied' | 'maintenance';
+  self_contained?: boolean;
 }
 
 export default function RoomsPage() {
@@ -21,7 +22,7 @@ export default function RoomsPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const [form, setForm] = useState({ room_number: '', price: '', description: '' });
+  const [form, setForm] = useState({ room_number: '', price: '', description: '', self_contained: false });
   const [saving, setSaving] = useState(false);
 
   const formatPrice = (p: number | string | undefined | null) => {
@@ -57,7 +58,8 @@ export default function RoomsPage() {
       const payload = {
         room_number: form.room_number.trim(),
         price: parseFloat(form.price),
-        description: form.description.trim() || undefined
+        description: form.description.trim() || undefined,
+        self_contained: !!form.self_contained
       };
       const res = await fetch('http://localhost:5000/api/rooms', {
         method: 'POST',
@@ -69,7 +71,7 @@ export default function RoomsPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to create room');
-      setForm({ room_number: '', price: '', description: '' });
+      setForm({ room_number: '', price: '', description: '', self_contained: false });
       await fetchRooms();
       setNotice('Room created successfully');
       setTimeout(() => setNotice(''), 3000);
@@ -146,6 +148,10 @@ export default function RoomsPage() {
                 <Label>Price</Label>
                 <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
               </div>
+              <div className="flex items-center gap-2">
+                <input id="self_contained" type="checkbox" checked={form.self_contained} onChange={(e) => setForm({ ...form, self_contained: e.target.checked })} />
+                <Label htmlFor="self_contained">Self-contained</Label>
+              </div>
               <div className="md:col-span-3">
                 <Label>Description</Label>
                 <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -182,7 +188,8 @@ export default function RoomsPage() {
                           const priceStr = prompt('Price', String(r.price)) || undefined;
                           const description = prompt('Description', r.description || '') || undefined;
                           const price = priceStr !== undefined ? parseFloat(priceStr) : undefined;
-                          updateRoom(r.id, { room_number, price, description });
+                          const self_contained = confirm('Is the room self-contained? (OK = yes, Cancel = no)') ? true : false;
+                          updateRoom(r.id, { room_number, price, description, self_contained });
                         }}>Edit</Button>
                         <Button variant="outline" size="sm" onClick={() => updateRoom(r.id, { status: r.status === 'available' ? 'occupied' : 'available' })}>
                           {r.status === 'available' ? 'Mark Occupied' : 'Mark Available'}

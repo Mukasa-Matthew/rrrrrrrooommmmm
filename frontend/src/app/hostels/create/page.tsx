@@ -64,6 +64,7 @@ export default function CreateHostelPage() {
     status: 'active' as const,
     university_id: '',
     region_id: '',
+    occupancy_type: '' as '' | 'male' | 'female' | 'mixed',
     subscription_plan_id: ''
   });
 
@@ -150,6 +151,11 @@ export default function CreateHostelPage() {
 
     if (!hostelData.subscription_plan_id) {
       setError('Please select a subscription plan');
+      return;
+    }
+
+    if (!hostelData.occupancy_type) {
+      setError('Please select an occupancy type');
       return;
     }
 
@@ -277,6 +283,25 @@ export default function CreateHostelPage() {
                         {region.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="occupancy_type">Occupancy Type *</Label>
+                <Select
+                  value={hostelData.occupancy_type || undefined}
+                  onValueChange={(value) => setHostelData(prev => ({ ...prev, occupancy_type: value as 'male' | 'female' | 'mixed' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select occupancy type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="mixed">Mixed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

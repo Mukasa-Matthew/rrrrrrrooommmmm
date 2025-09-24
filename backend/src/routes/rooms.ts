@@ -90,14 +90,14 @@ router.post('/', async (req: Request, res) => {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
-    const { room_number, price, description } = req.body as any;
+    const { room_number, price, description, self_contained } = req.body as any;
     if (!room_number || price === undefined) {
       return res.status(400).json({ success: false, message: 'room_number and price are required' });
     }
     const result = await pool.query(
-      `INSERT INTO rooms (hostel_id, room_number, price, description, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'available', NOW(), NOW()) RETURNING *`,
-      [currentUser.hostel_id, room_number, price, description || null]
+      `INSERT INTO rooms (hostel_id, room_number, price, description, self_contained, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, COALESCE($5,false), 'available', NOW(), NOW()) RETURNING *`,
+      [currentUser.hostel_id, room_number, price, description || null, !!self_contained]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (e) {
@@ -117,7 +117,7 @@ router.put('/:id', async (req: Request, res) => {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const { id } = req.params;
-    const { room_number, price, description, status } = req.body as any;
+    const { room_number, price, description, status, self_contained } = req.body as any;
     // Ensure ownership
     const check = await pool.query('SELECT id FROM rooms WHERE id = $1 AND hostel_id = $2', [id, currentUser.hostel_id]);
     if (!check.rowCount) return res.status(404).json({ success: false, message: 'Room not found' });
@@ -138,10 +138,11 @@ router.put('/:id', async (req: Request, res) => {
         room_number = COALESCE($1, room_number),
         price = COALESCE($2, price),
         description = COALESCE($3, description),
-        status = COALESCE($4, status),
+        self_contained = COALESCE($4, self_contained),
+        status = COALESCE($5, status),
         updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [room_number || null, price ?? null, description || null, status || null, id]
+       WHERE id = $6 RETURNING *`,
+      [room_number || null, price ?? null, description || null, (self_contained === undefined ? null : !!self_contained), status || null, id]
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (e) {

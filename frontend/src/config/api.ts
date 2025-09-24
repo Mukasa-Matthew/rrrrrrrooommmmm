@@ -49,6 +49,8 @@ export const API_CONFIG = {
       CREATE: `${API_BASE_URL}/api/hostels`,
       GET: `${API_BASE_URL}/api/hostels`,
       ADMIN_SUMMARY: `${API_BASE_URL}/api/hostels`,
+      DELETE: `${API_BASE_URL}/api/hostels`,
+      RESEND_ADMIN_CREDENTIALS: `${API_BASE_URL}/api/hostels`,
     },
     ANALYTICS: {
       PLATFORM_OVERVIEW: `${API_BASE_URL}/api/multi-tenant/platform/overview`,
@@ -64,6 +66,13 @@ export const API_CONFIG = {
                 SUBSCRIBE_HOSTEL: `${API_BASE_URL}/api/subscription-plans/hostel`,
                 RENEW_HOSTEL: `${API_BASE_URL}/api/subscription-plans/hostel`,
       EXPIRED: `${API_BASE_URL}/api/subscription-plans/expired/all`,
+    },
+    CUSTODIANS: {
+      LIST: `${API_BASE_URL}/api/custodians`,
+      CREATE: `${API_BASE_URL}/api/custodians`,
+      UPDATE: `${API_BASE_URL}/api/custodians`,
+      DELETE: `${API_BASE_URL}/api/custodians`,
+      RESEND_CREDENTIALS: `${API_BASE_URL}/api/custodians`,
     },
   },
 };

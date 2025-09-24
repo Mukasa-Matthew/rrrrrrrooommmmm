@@ -13,7 +13,8 @@ async function updateHostelSchema() {
       ADD COLUMN IF NOT EXISTS distance_from_campus DECIMAL(5,2),
       ADD COLUMN IF NOT EXISTS amenities TEXT,
       ADD COLUMN IF NOT EXISTS price_per_room INTEGER,
-      ADD COLUMN IF NOT EXISTS rules_and_regulations TEXT
+      ADD COLUMN IF NOT EXISTS rules_and_regulations TEXT,
+      ADD COLUMN IF NOT EXISTS occupancy_type VARCHAR(10) CHECK (occupancy_type IN ('male','female','mixed'))
     `);
     
     await pool.query('COMMIT');

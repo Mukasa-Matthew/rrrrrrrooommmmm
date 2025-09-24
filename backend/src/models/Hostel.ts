@@ -16,6 +16,7 @@ export interface Hostel {
   amenities?: string;
   price_per_room?: number;
   rules_and_regulations?: string;
+  occupancy_type?: 'male' | 'female' | 'mixed';
   created_at: Date;
   updated_at: Date;
 }
@@ -31,6 +32,7 @@ export interface CreateHostelData {
   status?: 'active' | 'inactive' | 'maintenance' | 'suspended';
   university_id?: number;
   region_id?: number;
+  occupancy_type?: 'male' | 'female' | 'mixed';
 }
 
 export interface CreateHostelWithAdminData extends CreateHostelData {
@@ -53,16 +55,17 @@ export class HostelModel {
       contact_email, 
       status,
       university_id,
-      region_id
+      region_id,
+      occupancy_type
     } = hostelData;
     
     const query = `
       INSERT INTO hostels (
         name, address, description, total_rooms, available_rooms, 
-        contact_phone, contact_email, status, university_id, region_id,
+        contact_phone, contact_email, status, university_id, region_id, occupancy_type,
         created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `;
     
@@ -76,7 +79,8 @@ export class HostelModel {
       contact_email, 
       status || 'active',
       university_id || null,
-      region_id || null
+      region_id || null,
+      occupancy_type || null
     ]);
     return result.rows[0];
   }

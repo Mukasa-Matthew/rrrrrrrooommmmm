@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   output: 'standalone',
+  devIndicators: {
+    buildActivity: false,
+    appIsrStatus: false,
+  },
 };
 
 export default nextConfig;

@@ -6,6 +6,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { API_CONFIG, getAuthHeaders } from '@/config/api';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ export default function HostelDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const hostelId = Number(params?.id);
+  const { user } = useAuth();
 
   const [overview, setOverview] = useState<HostelOverview | null>(null);
   const [payments, setPayments] = useState<PaymentsSummary>({ total_collected: 0, total_outstanding: 0 });
@@ -154,6 +156,42 @@ export default function HostelDetailsPage() {
     }
   };
 
+  const handleDeleteHostel = async () => {
+    if (!confirm('Are you sure you want to delete this hostel? This action cannot be undone.')) return;
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await fetch(`${API_CONFIG.ENDPOINTS.HOSTELS.DELETE}/${hostelId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to delete hostel');
+      setActionSuccess('Hostel deleted');
+      // Redirect back to hostels list
+      router.push('/hostels');
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to delete hostel');
+    }
+  };
+
+  const handleResendAdminCredentials = async () => {
+    if (!confirm('Resend new credentials to the hostel admin?')) return;
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await fetch(`${API_CONFIG.ENDPOINTS.HOSTELS.RESEND_ADMIN_CREDENTIALS}/${hostelId}/resend-credentials`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Failed to resend credentials');
+      setActionSuccess('New credentials sent to hostel admin');
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to resend credentials');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -177,6 +215,12 @@ export default function HostelDetailsPage() {
     <Layout>
       <div className="space-y-6 p-6">
         <Button variant="outline" onClick={() => router.back()}>Back</Button>
+        {user?.role === 'super_admin' && (
+          <div className="flex gap-2">
+            <Button variant="destructive" onClick={handleDeleteHostel}>Delete Hostel</Button>
+            <Button variant="outline" onClick={handleResendAdminCredentials}>Resend Admin Credentials</Button>
+          </div>
+        )}
 
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{overview.hostel_name}</h1>
@@ -273,6 +317,7 @@ export default function HostelDetailsPage() {
                 <div>Plan: <span className="font-medium">{latestSubscription.plan_name || ''}</span></div>
                 <div>Start: {new Date(latestSubscription.start_date).toLocaleDateString()}</div>
                 <div>End: {new Date(latestSubscription.end_date).toLocaleDateString()}</div>
+                <div>Paid: <span className="font-medium">{formatCurrency(latestSubscription.amount_paid || 0)}</span></div>
                 <div>Status: <span className="font-medium">{latestSubscription.status}</span></div>
               </div>
             ) : (

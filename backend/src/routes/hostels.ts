@@ -6,8 +6,10 @@ import { HostelSubscriptionModel } from '../models/SubscriptionPlan';
 import { EmailService } from '../services/emailService';
 import { CredentialGenerator } from '../utils/credentialGenerator';
 import pool from '../config/database';
+import { SimpleRateLimiter } from '../utils/rateLimiter';
 
 const router = express.Router();
+const resendLimiter = new SimpleRateLimiter(3, 60 * 60 * 1000); // 3 per hour
 
 // Get all hostels
 router.get('/', async (req, res) => {
@@ -157,6 +159,7 @@ router.post('/', async (req, res) => {
       status,
       university_id,
       region_id,
+      occupancy_type,
       subscription_plan_id,
       admin_name,
       admin_email,
@@ -200,7 +203,10 @@ router.post('/', async (req, res) => {
         available_rooms: available_rooms || total_rooms,
         contact_phone,
         contact_email,
-        status: status || 'active'
+        status: status || 'active',
+        university_id,
+        region_id,
+        occupancy_type
       };
 
       const hostel = await HostelModel.create(hostelData);
@@ -334,9 +340,17 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete hostel
+// Delete hostel (super_admin only)
 router.delete('/:id', async (req, res) => {
   try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
+    const decoded: any = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    const currentUser = await UserModel.findById(decoded.userId);
+    if (!currentUser || currentUser.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
     const id = parseInt(req.params.id);
     const deleted = await HostelModel.delete(id);
     
@@ -351,8 +365,12 @@ router.delete('/:id', async (req, res) => {
       success: true,
       message: 'Hostel and associated admin deleted successfully'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete hostel error:', error);
+    // Surface FK constraint in a friendly way
+    if (error.code === '23503') {
+      return res.status(400).json({ success: false, message: 'Cannot delete hostel with related records. Remove dependencies first.' });
+    }
     res.status(500).json({ 
       success: false, 
       message: 'Internal server error' 
@@ -378,9 +396,24 @@ router.get('/stats/overview', async (req, res) => {
 });
 
 // Resend credentials to hostel admin
+// Resend credentials to hostel admin (super_admin only)
 router.post('/:id/resend-credentials', async (req, res) => {
   try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
+    const decoded: any = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    const currentUser = await UserModel.findById(decoded.userId);
+    if (!currentUser || currentUser.role !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
     const hostelId = parseInt(req.params.id);
+
+    // Rate limit per (requester, hostelId, action)
+    const ip = (req.headers['x-forwarded-for'] as string) || req.ip || '';
+    const rl = resendLimiter.allow(['resend_admin_credentials', currentUser.id, hostelId, ip]);
+    if (!rl.allowed) {
+      return res.status(429).json({ success: false, message: `Too many requests. Try again in ${Math.ceil(rl.resetMs/1000)}s` });
+    }
     
     // Get hostel details
     const hostel = await HostelModel.findById(hostelId);
@@ -438,17 +471,29 @@ router.post('/:id/resend-credentials', async (req, res) => {
       // Don't fail the request if email fails
     }
 
-    res.json({
-      success: true,
-      message: 'New credentials sent successfully',
-      data: {
-        admin_email: admin.email,
-        new_password: newTemporaryPassword // Only for development - remove in production
-      }
-    });
+    // Audit log success
+    await pool.query(
+      `INSERT INTO audit_logs (action, requester_user_id, target_user_id, target_hostel_id, status, message, ip_address, user_agent)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      ['resend_admin_credentials', currentUser.id, admin.id, hostelId, 'success', 'Password rotated and email sent', ip, (req.headers['user-agent'] as string) || null]
+    );
+
+    res.json({ success: true, message: 'New credentials sent successfully' });
 
   } catch (error) {
     console.error('Resend credentials error:', error);
+    try {
+      // Best-effort audit failure
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      const decoded: any = token ? require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'fallback_secret') : null;
+      const requesterId = decoded?.userId || null;
+      const hostelId = Number(req.params.id) || null;
+      await pool.query(
+        `INSERT INTO audit_logs (action, requester_user_id, target_user_id, target_hostel_id, status, message, ip_address, user_agent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        ['resend_admin_credentials', requesterId, null, hostelId, 'failure', 'Internal server error', (req.headers['x-forwarded-for'] as string) || req.ip || '', (req.headers['user-agent'] as string) || null]
+      );
+    } catch {}
     res.status(500).json({
       success: false,
       message: 'Internal server error'
