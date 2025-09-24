@@ -12,6 +12,10 @@ export const API_CONFIG = {
       DELETE_PROFILE_PICTURE: `${API_BASE_URL}/api/auth/profile-picture`,
       CHANGE_PASSWORD: `${API_BASE_URL}/api/auth/change-password`,
     },
+    UNIVERSITIES: {
+      LIST: `${API_BASE_URL}/api/universities`,
+      REGIONS_LIST: `${API_BASE_URL}/api/universities/regions/list`,
+    },
     STUDENTS: {
       LIST: `${API_BASE_URL}/api/students`,
       CREATE: `${API_BASE_URL}/api/students`,
