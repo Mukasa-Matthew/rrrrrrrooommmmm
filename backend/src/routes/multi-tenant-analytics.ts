@@ -70,7 +70,6 @@ router.get('/universities/stats', async (req, res) => {
         u.id,
         u.name as university_name,
         u.code,
-        r.name as region_name,
         COUNT(DISTINCT h.id) as hostel_count,
         COUNT(DISTINCT CASE WHEN us.role = 'user' THEN us.id END) as student_count,
         SUM(h.total_rooms) as total_rooms,
@@ -86,7 +85,7 @@ router.get('/universities/stats', async (req, res) => {
       LEFT JOIN regions r ON u.region_id = r.id
       LEFT JOIN hostels h ON h.university_id = u.id
       LEFT JOIN users us ON us.hostel_id = h.id
-      GROUP BY u.id, u.name, u.code, r.name, u.status
+      GROUP BY u.id, u.name, u.code, u.status
       ORDER BY hostel_count DESC
     `;
     const result = await pool.query(query);
@@ -125,7 +124,7 @@ router.get('/regions/stats', async (req, res) => {
         END as avg_occupancy_rate
       FROM regions r
       LEFT JOIN universities u ON u.region_id = r.id AND u.status = 'active'
-      LEFT JOIN hostels h ON h.region_id = r.id
+      LEFT JOIN hostels h ON h.university_id = u.id
       LEFT JOIN users us ON us.hostel_id = h.id
       GROUP BY r.id, r.name, r.country
       ORDER BY hostel_count DESC
@@ -163,7 +162,6 @@ router.get('/university/:universityId/overview', async (req, res) => {
       SELECT 
         u.name as university_name,
         u.code,
-        r.name as region_name,
         COUNT(DISTINCT h.id) as total_hostels,
         COUNT(DISTINCT CASE WHEN us.role = 'user' THEN us.id END) as total_students,
         COUNT(DISTINCT CASE WHEN us.role = 'hostel_admin' THEN us.id END) as total_hostel_admins,
@@ -180,7 +178,7 @@ router.get('/university/:universityId/overview', async (req, res) => {
       LEFT JOIN hostels h ON h.university_id = u.id
       LEFT JOIN users us ON us.hostel_id = h.id
       WHERE u.id = $1
-      GROUP BY u.id, u.name, u.code, r.name
+      GROUP BY u.id, u.name, u.code
     `;
     const result = await pool.query(query, [universityId]);
     
@@ -226,7 +224,6 @@ router.get('/hostel/:hostelId/overview', async (req, res) => {
         h.name as hostel_name,
         h.address,
         u.name as university_name,
-        r.name as region_name,
         COUNT(CASE WHEN us.role = 'user' THEN us.id END) as total_students,
         COALESCE((SELECT occupied_from_rooms + available_from_rooms FROM room_counts), h.total_rooms) as total_rooms,
         COALESCE((SELECT available_from_rooms FROM room_counts), h.available_rooms) as available_rooms,
@@ -240,10 +237,9 @@ router.get('/hostel/:hostelId/overview', async (req, res) => {
         h.status
       FROM hostels h
       LEFT JOIN universities u ON h.university_id = u.id
-      LEFT JOIN regions r ON h.region_id = r.id
       LEFT JOIN users us ON us.hostel_id = h.id
       WHERE h.id = $1
-      GROUP BY h.id, h.name, h.address, u.name, r.name, h.total_rooms, h.available_rooms, h.status
+      GROUP BY h.id, h.name, h.address, u.name, h.total_rooms, h.available_rooms, h.status
     `;
     const result = await pool.query(query, [hostelId]);
     

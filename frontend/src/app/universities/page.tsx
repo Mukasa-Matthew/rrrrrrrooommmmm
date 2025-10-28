@@ -37,8 +37,8 @@ interface University {
   id: number;
   name: string;
   code: string;
-  region_id: number;
-  region_name: string;
+  region_id?: number;
+  region_name?: string;
   address?: string;
   contact_phone?: string;
   contact_email?: string;
@@ -145,7 +145,7 @@ export default function UniversitiesPage() {
       id: university.id,
       name: university.name,
       code: university.code,
-      region_id: String(university.region_id),
+      region_id: university.region_id ? String(university.region_id) : '',
       address: university.address || '',
       contact_phone: university.contact_phone || '',
       contact_email: university.contact_email || '',
@@ -159,16 +159,20 @@ export default function UniversitiesPage() {
     setSaving(true);
     setError('');
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         name: createForm.name.trim(),
         code: createForm.code.trim(),
-        region_id: Number(createForm.region_id),
         address: createForm.address.trim() || undefined,
         contact_phone: createForm.contact_phone.trim() || undefined,
         contact_email: createForm.contact_email.trim() || undefined,
         website: createForm.website.trim() || undefined,
         status: createForm.status as 'active' | 'inactive' | 'suspended'
       };
+      
+      // Only include region_id if it's selected
+      if (createForm.region_id) {
+        payload.region_id = Number(createForm.region_id);
+      }
       const res = await fetch('http://localhost:5000/api/universities', {
         method: 'POST',
         headers: {
@@ -198,13 +202,17 @@ export default function UniversitiesPage() {
       const payload: Record<string, any> = {
         name: editForm.name.trim(),
         code: editForm.code.trim(),
-        region_id: Number(editForm.region_id),
         address: editForm.address.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
         contact_email: editForm.contact_email.trim() || null,
         website: editForm.website.trim() || null,
         status: editForm.status
       };
+      
+      // Only include region_id if it's selected
+      if (editForm.region_id) {
+        payload.region_id = Number(editForm.region_id);
+      }
       const res = await fetch(`http://localhost:5000/api/universities/${id}`, {
         method: 'PUT',
         headers: {
@@ -327,10 +335,12 @@ export default function UniversitiesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4" />
-                    <span>{university.region_name}</span>
-                  </div>
+                  {university.region_name && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <MapPin className="h-4 w-4" />
+                      <span>{university.region_name}</span>
+                    </div>
+                  )}
                   
                   {university.address && (
                     <div className="flex items-start space-x-2 text-sm text-gray-600">
@@ -445,7 +455,7 @@ export default function UniversitiesPage() {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={submitCreate} disabled={saving || !createForm.name || !createForm.code || !createForm.region_id}>Save</Button>
+              <Button onClick={submitCreate} disabled={saving || !createForm.name || !createForm.code}>Save</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -511,7 +521,7 @@ export default function UniversitiesPage() {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-              <Button onClick={submitEdit} disabled={saving || !editForm.name || !editForm.code || !editForm.region_id}>Save changes</Button>
+              <Button onClick={submitEdit} disabled={saving || !editForm.name || !editForm.code}>Save changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -27,12 +27,6 @@ interface University {
   region_name: string;
 }
 
-interface Region {
-  id: number;
-  name: string;
-  country: string;
-}
-
 interface SubscriptionPlan {
   id: number;
   name: string;
@@ -48,7 +42,6 @@ export default function CreateHostelPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [universities, setUniversities] = useState<University[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const router = useRouter();
 
@@ -63,7 +56,6 @@ export default function CreateHostelPage() {
     contact_email: '',
     status: 'active' as const,
     university_id: '',
-    region_id: '',
     occupancy_type: '' as '' | 'male' | 'female' | 'mixed',
     subscription_plan_id: ''
   });
@@ -77,34 +69,32 @@ export default function CreateHostelPage() {
   });
 
   useEffect(() => {
-    fetchUniversitiesAndRegions();
+    fetchUniversities();
     fetchSubscriptionPlans();
   }, []);
 
-  const fetchUniversitiesAndRegions = async () => {
+  const fetchUniversities = async () => {
     try {
-      const [universitiesRes, regionsRes] = await Promise.all([
-        fetch(API_CONFIG.ENDPOINTS.UNIVERSITIES.LIST, {
-          headers: getAuthHeaders()
-        }),
-        fetch(`${API_CONFIG.BASE_URL}/api/universities/regions/list`, {
-          headers: getAuthHeaders()
-        })
-      ]);
+      const universitiesRes = await fetch(API_CONFIG.ENDPOINTS.UNIVERSITIES.LIST, {
+        headers: getAuthHeaders()
+      });
 
-      const [universitiesData, regionsData] = await Promise.all([
-        universitiesRes.json(),
-        regionsRes.json()
-      ]);
+      if (!universitiesRes.ok) {
+        console.error('Failed to fetch universities:', universitiesRes.status);
+        return;
+      }
+
+      const universitiesData = await universitiesRes.json();
 
       if (universitiesData.success) {
         setUniversities(universitiesData.data);
       }
-      if (regionsData.success) {
-        setRegions(regionsData.data);
+    } catch (error: any) {
+      console.error('Failed to fetch universities:', error);
+      // Don't show error to user if it's just a network issue (backend might be starting)
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.warn('Backend server may not be running. Universities will not be available.');
       }
-    } catch (error) {
-      console.error('Failed to fetch universities and regions:', error);
     }
   };
 
@@ -113,13 +103,23 @@ export default function CreateHostelPage() {
       const response = await fetch(API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.LIST, {
         headers: getAuthHeaders()
       });
+      
+      if (!response.ok) {
+        console.error('Failed to fetch subscription plans:', response.status);
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.success) {
         setSubscriptionPlans(data.plans);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch subscription plans:', error);
+      // Don't show error to user if it's just a network issue (backend might be starting)
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.warn('Backend server may not be running. Subscription plans will not be available.');
+      }
     }
   };
 
@@ -161,6 +161,7 @@ export default function CreateHostelPage() {
 
 
     setIsLoading(true);
+    setError('');
 
     try {
       const response = await fetch(API_CONFIG.ENDPOINTS.HOSTELS.CREATE, {
@@ -180,10 +181,21 @@ export default function CreateHostelPage() {
         })
       });
 
-      const data = await response.json();
+      // Check if we got a response
+      if (!response) {
+        throw new Error('No response from server. Please ensure the backend server is running on port 5000.');
+      }
+
+      // Try to parse JSON
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error(`Server returned invalid response (Status: ${response.status}). Please check the backend server logs.`);
+      }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to create hostel');
+        throw new Error(data.message || data.error || 'Failed to create hostel');
       }
 
       setSuccess('Hostel and admin created successfully!');
@@ -194,7 +206,16 @@ export default function CreateHostelPage() {
       }, 2000);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create hostel');
+      let errorMessage = 'Failed to create hostel';
+      
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        errorMessage = 'Cannot connect to server. Please ensure the backend server is running on http://localhost:5000';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      console.error('Error creating hostel:', err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -262,25 +283,6 @@ export default function CreateHostelPage() {
                     {universities.map((university) => (
                       <SelectItem key={university.id} value={university.id.toString()}>
                         {university.name} ({university.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="region_id">Region *</Label>
-                <Select
-                  value={hostelData.region_id || undefined}
-                  onValueChange={(value) => setHostelData(prev => ({ ...prev, region_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regions.map((region) => (
-                      <SelectItem key={region.id} value={region.id.toString()}>
-                        {region.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -158,7 +158,6 @@ router.post('/', async (req, res) => {
       contact_email,
       status,
       university_id,
-      region_id,
       occupancy_type,
       subscription_plan_id,
       admin_name,
@@ -205,7 +204,6 @@ router.post('/', async (req, res) => {
         contact_email,
         status: status || 'active',
         university_id,
-        region_id,
         occupancy_type
       };
 
@@ -227,27 +225,42 @@ router.post('/', async (req, res) => {
       // Update admin's hostel_id
       await client.query('UPDATE users SET hostel_id = $1 WHERE id = $2', [hostel.id, admin.id]);
 
-      // Create subscription for the hostel
-      const subscription = await HostelSubscriptionModel.create({
-        hostel_id: hostel.id,
-        plan_id: parseInt(subscription_plan_id),
-        start_date: new Date(),
-        end_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // Default 30 days, will be updated based on plan
-        amount_paid: 0, // Will be updated when payment is recorded
-        status: 'active',
-        payment_method: 'pending',
-        payment_reference: `PENDING-${hostel.id}-${Date.now()}`
-      });
-
-      // Update subscription end date based on plan duration
-      const planResult = await client.query('SELECT duration_months FROM subscription_plans WHERE id = $1', [subscription_plan_id]);
-      if (planResult.rows.length > 0) {
-        const durationMonths = planResult.rows[0].duration_months;
-        const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + durationMonths);
-        
-        await client.query('UPDATE hostel_subscriptions SET end_date = $1 WHERE id = $2', [endDate, subscription.id]);
+      // Verify subscription plan exists
+      const planId = parseInt(subscription_plan_id);
+      if (isNaN(planId)) {
+        throw new Error('Invalid subscription plan ID');
       }
+
+      const planResult = await client.query('SELECT duration_months, total_price FROM subscription_plans WHERE id = $1 AND is_active = true', [planId]);
+      if (planResult.rows.length === 0) {
+        throw new Error('Subscription plan not found or inactive');
+      }
+
+      const plan = planResult.rows[0];
+      const durationMonths = plan.duration_months;
+
+      // Calculate end date based on plan duration
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + durationMonths);
+
+      // Create subscription for the hostel (using transaction client)
+      const subscriptionResult = await client.query(
+        `INSERT INTO hostel_subscriptions (hostel_id, plan_id, start_date, end_date, amount_paid, status, payment_method, payment_reference)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          hostel.id,
+          planId,
+          startDate,
+          endDate,
+          0, // amount_paid - will be updated when payment is recorded
+          'active',
+          'pending',
+          `PENDING-${hostel.id}-${Date.now()}`
+        ]
+      );
+      const subscription = subscriptionResult.rows[0];
 
       // Update hostel with current subscription
       await client.query('UPDATE hostels SET current_subscription_id = $1 WHERE id = $2', [subscription.id, hostel.id]);
@@ -302,11 +315,23 @@ router.post('/', async (req, res) => {
       client.release();
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create hostel error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Internal server error';
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.code === '23503') {
+      errorMessage = 'Invalid subscription plan or reference error';
+    } else if (error.code === '23505') {
+      errorMessage = 'Duplicate entry detected';
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: 'Internal server error' 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

@@ -26,7 +26,15 @@ export interface UserResponse {
   };
 }
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use the same API config as the rest of the app
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  }
+  return 'http://localhost:5000';
+};
+
+const API_BASE_URL = `${getApiBaseUrl()}/api`;
 
 // Real authentication functions using backend API
 export const login = async (
@@ -123,17 +131,46 @@ export const getCurrentUser = async (): Promise<User | null> => {
       },
     });
 
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      // If it's a 401/403, token is invalid
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('auth_token');
+        return null;
+      }
+      // For other errors, try to parse error message
+      try {
+        const errorData = await response.json();
+        console.error('Get current user failed:', errorData.message || 'Unknown error');
+      } catch {
+        console.error('Get current user failed with status:', response.status);
+      }
+      localStorage.removeItem('auth_token');
+      return null;
+    }
+
     const data: UserResponse = await response.json();
 
-    if (!response.ok || !data.success) {
+    if (!data.success) {
       // Token is invalid, remove it
       localStorage.removeItem('auth_token');
       return null;
     }
 
     return data.data.user;
-  } catch (error) {
-    console.error('Get current user failed:', error);
+  } catch (error: any) {
+    // Handle network errors (backend not running, CORS, etc.)
+    console.error('Get current user network error:', error);
+    
+    // If it's a network error and not a local super admin token, 
+    // don't remove the token (user might just have network issues)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.warn('Backend server may not be running or network error occurred');
+      // Return null but keep token in case it's just a temporary network issue
+      return null;
+    }
+    
+    // For other errors, remove invalid token
     localStorage.removeItem('auth_token');
     return null;
   }

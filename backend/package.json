@@ -19,6 +19,7 @@
     "migrate:add-expenses": "ts-node src/database/add-expenses-migration.ts",
     "setup:super-admin": "ts-node src/database/setup-super-admin.ts",
     "migrate:subscription-plans": "ts-node src/database/add-subscription-plans-migration.ts",
+    "remove:default-plans": "ts-node src/debug/remove-default-subscription-plans.ts",
     "purge": "ts-node src/debug/purge-hostels-and-admins.ts",
     "normalize-regions": "ts-node src/debug/normalize-regions.ts",
     "check-hostels": "ts-node src/debug/check-hostels.ts"

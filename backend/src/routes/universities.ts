@@ -52,10 +52,10 @@ router.post('/', async (req, res) => {
     const universityData = req.body;
     
     // Validate required fields
-    if (!universityData.name || !universityData.code || !universityData.region_id) {
+    if (!universityData.name || !universityData.code) {
       return res.status(400).json({
         success: false,
-        message: 'Name, code, and region_id are required'
+        message: 'Name and code are required'
       });
     }
 

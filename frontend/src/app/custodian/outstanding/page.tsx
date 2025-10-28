@@ -5,6 +5,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { API_CONFIG, getAuthHeaders } from '@/config/api';
 
 interface StudentWithBalance {
   user_id: number;
@@ -14,7 +15,6 @@ interface StudentWithBalance {
   whatsapp?: string;
   access_number?: string;
   room_number?: string;
-  room_type?: string;
   expected: number | null;
   paid: number;
   balance: number | null;
@@ -24,33 +24,60 @@ interface StudentWithBalance {
 export default function CustodianOutstandingPage() {
   const [studentsWithBalance, setStudentsWithBalance] = useState<StudentWithBalance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const fetchOutstandingStudents = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/payments/summary', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+      setLoading(true);
+      setError(null);
+      
+      const res = await fetch(API_CONFIG.ENDPOINTS.PAYMENTS.SUMMARY, {
+        headers: getAuthHeaders()
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const withBal = (data.data.students || [])
-          .filter((x: any) => x.balance !== null && Number(x.balance) > 0)
-          .map((x: any) => ({
-            user_id: x.user_id,
-            name: x.name,
-            email: x.email,
-            phone: x.phone,
-            whatsapp: x.whatsapp,
-            access_number: x.access_number,
-            room_number: x.room_number,
-            room_type: x.room_type,
-            expected: x.expected,
-            paid: x.paid,
-            balance: Number(x.balance),
-            status: x.status
-          }));
-        setStudentsWithBalance(withBal);
+      
+      if (!res) {
+        throw new Error('No response from server. Please ensure the backend server is running on port 5000.');
       }
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseError) {
+        throw new Error(`Server returned invalid response (Status: ${res.status}). Please check the backend server logs.`);
+      }
+      
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Failed to fetch outstanding students');
+      }
+      
+      const withBal = (data.data.students || [])
+        .filter((x: any) => x.balance !== null && Number(x.balance) > 0)
+        .map((x: any) => ({
+          user_id: x.user_id,
+          name: x.name,
+          email: x.email,
+          phone: x.phone,
+          whatsapp: x.whatsapp,
+          access_number: x.access_number,
+          room_number: x.room_number,
+          expected: x.expected,
+          paid: x.paid,
+          balance: Number(x.balance),
+          status: x.status
+        }));
+      setStudentsWithBalance(withBal);
+    } catch (err) {
+      let errorMessage = 'Failed to fetch outstanding students';
+      
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        errorMessage = 'Cannot connect to server. Please ensure the backend server is running on http://localhost:5000';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      console.error('Error fetching outstanding students:', err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -124,6 +151,11 @@ export default function CustodianOutstandingPage() {
           <CardContent>
             {loading ? (
               <p>Loading...</p>
+            ) : error ? (
+              <div className="text-sm text-red-600">
+                <p>{error}</p>
+                <Button onClick={fetchOutstandingStudents} className="mt-2">Retry</Button>
+              </div>
             ) : filteredStudents.length === 0 ? (
               <p className="text-sm text-gray-600">No students with outstanding balances.</p>
             ) : (
@@ -158,7 +190,6 @@ export default function CustodianOutstandingPage() {
                           {s.room_number ? (
                             <div>
                               <p className="font-medium">Room {s.room_number}</p>
-                              {s.room_type && <p className="text-xs text-gray-500">{s.room_type}</p>}
                             </div>
                           ) : '-'}
                         </td>

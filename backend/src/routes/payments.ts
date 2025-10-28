@@ -54,7 +54,7 @@ router.post('/', async (req: Request, res) => {
 
     // Get room assignment and expected price
     const roomRes = await client.query(
-      `SELECT rm.room_number, rm.room_type, rm.price::numeric AS expected_price
+      `SELECT rm.room_number, rm.price::numeric AS expected_price
        FROM student_room_assignments sra
        JOIN rooms rm ON rm.id = sra.room_id
        WHERE sra.user_id = $1 AND sra.status = 'active'
@@ -87,7 +87,7 @@ router.post('/', async (req: Request, res) => {
       currency || 'UGX',
       balanceAfter,
       room?.room_number || null,
-      room?.room_type || null,
+null,
       new Date(payRes.rows[0].created_at).toLocaleString(),
       hostelName,
       currentUser.name,
@@ -105,7 +105,7 @@ router.post('/', async (req: Request, res) => {
         currency || 'UGX',
         0,
         room?.room_number || null,
-        room?.room_type || null,
+  null,
         new Date(payRes.rows[0].created_at).toLocaleString(),
         hostelName,
         currentUser.name,
@@ -155,8 +155,8 @@ router.get('/summary', async (req, res) => {
 
     // Per-student expected vs paid
     const rowsRes = await pool.query(
-      `WITH active_assignment AS (
-         SELECT sra.user_id, rm.price::numeric AS expected, rm.room_number, rm.room_type
+      `       WITH active_assignment AS (
+         SELECT sra.user_id, rm.price::numeric AS expected, rm.room_number
          FROM student_room_assignments sra
          JOIN rooms rm ON rm.id = sra.room_id
          WHERE sra.status = 'active'
@@ -169,7 +169,7 @@ router.get('/summary', async (req, res) => {
        )
        SELECT u.id AS user_id, u.name, u.email,
               sp.access_number, sp.phone, sp.whatsapp,
-              aa.expected, aa.room_number, aa.room_type,
+              aa.expected, aa.room_number,
               COALESCE(p.paid, 0)::numeric AS paid,
               CASE WHEN aa.expected IS NULL THEN NULL ELSE (aa.expected - COALESCE(p.paid,0))::numeric END AS balance
        FROM users u
@@ -189,7 +189,6 @@ router.get('/summary', async (req, res) => {
       phone: r.phone || null,
       whatsapp: r.whatsapp || null,
       room_number: r.room_number || null,
-      room_type: r.room_type || null,
       expected: r.expected !== null ? parseFloat(r.expected) : null,
       paid: parseFloat(r.paid || 0),
       balance: r.balance !== null ? parseFloat(r.balance) : null,

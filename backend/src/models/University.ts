@@ -4,7 +4,7 @@ export interface University {
   id: number;
   name: string;
   code: string;
-  region_id: number;
+  region_id?: number;
   address?: string;
   contact_phone?: string;
   contact_email?: string;
@@ -17,7 +17,7 @@ export interface University {
 export interface CreateUniversityData {
   name: string;
   code: string;
-  region_id: number;
+  region_id?: number;
   address?: string;
   contact_phone?: string;
   contact_email?: string;
@@ -53,7 +53,7 @@ export class UniversityModel {
     const values = [
       data.name,
       data.code,
-      data.region_id,
+      data.region_id || null,
       data.address || null,
       data.contact_phone || null,
       data.contact_email || null,

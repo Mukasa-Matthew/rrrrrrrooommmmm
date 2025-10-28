@@ -69,6 +69,22 @@ export default function SubscriptionPlansPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate form data
+    if (!formData.name || !formData.description || !formData.duration_months || !formData.price_per_month) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.duration_months < 1) {
+      setError('Duration must be at least 1 month');
+      return;
+    }
+
+    if (formData.price_per_month < 0) {
+      setError('Price per month must be 0 or greater');
+      return;
+    }
+    
     try {
       const url = editingPlan 
         ? `${API_CONFIG.ENDPOINTS.SUBSCRIPTION_PLANS.UPDATE}/${editingPlan.id}`
@@ -76,10 +92,21 @@ export default function SubscriptionPlansPage() {
       
       const method = editingPlan ? 'PUT' : 'POST';
       
+      // Ensure values are properly typed as numbers
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        duration_months: Number(formData.duration_months),
+        price_per_month: Number(formData.price_per_month)
+      };
+      
       const response = await fetch(url, {
         method,
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData)
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(payload)
       });
       
       const data = await response.json();
@@ -92,7 +119,8 @@ export default function SubscriptionPlansPage() {
         setError(data.message || 'Failed to save subscription plan');
       }
     } catch (err) {
-      setError('Failed to save subscription plan');
+      console.error('Error saving subscription plan:', err);
+      setError('Failed to save subscription plan. Please check your connection and try again.');
     }
   };
 
@@ -213,8 +241,11 @@ export default function SubscriptionPlansPage() {
                   <Input
                     id="duration_months"
                     type="number"
-                    value={formData.duration_months}
-                    onChange={(e) => setFormData({...formData, duration_months: parseInt(e.target.value)})}
+                    value={formData.duration_months || ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                      setFormData({...formData, duration_months: value});
+                    }}
                     min="1"
                     required
                   />
@@ -237,8 +268,11 @@ export default function SubscriptionPlansPage() {
                 <Input
                   id="price_per_month"
                   type="number"
-                  value={formData.price_per_month}
-                  onChange={(e) => setFormData({...formData, price_per_month: parseInt(e.target.value)})}
+                  value={formData.price_per_month || ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                    setFormData({...formData, price_per_month: value});
+                  }}
                   min="0"
                   required
                 />
@@ -246,7 +280,11 @@ export default function SubscriptionPlansPage() {
               
               <div className="bg-slate-50 p-4 rounded-lg">
                 <p className="text-sm text-slate-600">
-                  <strong>Total Price:</strong> {formatPrice(formData.duration_months * formData.price_per_month)}
+                  <strong>Total Price:</strong> {
+                    formatPrice(
+                      (formData.duration_months || 0) * (formData.price_per_month || 0)
+                    )
+                  }
                 </p>
               </div>
               

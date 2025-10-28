@@ -127,7 +127,7 @@ router.post('/', async (req: Request, res) => {
 
     // Assign room if provided
     if (room_id) {
-      const roomCheck = await client.query("SELECT id, price, room_number, room_type FROM rooms WHERE id = $1 AND hostel_id = $2 AND status = 'available'", [room_id, hostelId]);
+      const roomCheck = await client.query("SELECT id, price, room_number FROM rooms WHERE id = $1 AND hostel_id = $2 AND status = 'available'", [room_id, hostelId]);
       if (!roomCheck.rowCount) {
         await client.query('ROLLBACK');
         return res.status(400).json({ success: false, message: 'Invalid or unavailable room' });
@@ -140,7 +140,7 @@ router.post('/', async (req: Request, res) => {
     }
 
     // Record initial payment if provided
-    let roomMeta: { room_number: string | null; room_type: string | null; price: number | null } = { room_number: null, room_type: null, price: null };
+    let roomMeta: { room_number: string | null; price: number | null } = { room_number: null, price: null };
     if (initial_payment_amount) {
       const amt = parseFloat(initial_payment_amount);
       await client.query(
@@ -149,12 +149,12 @@ router.post('/', async (req: Request, res) => {
       );
       // Fetch room info if assigned
       const rm = await client.query(
-        `SELECT rm.room_number, rm.room_type, rm.price FROM student_room_assignments sra
+        `SELECT rm.room_number, rm.price FROM student_room_assignments sra
          JOIN rooms rm ON rm.id = sra.room_id WHERE sra.user_id = $1 AND sra.status = 'active' LIMIT 1`,
         [createdUser.id]
       );
       if (rm.rowCount) {
-        roomMeta = { room_number: rm.rows[0].room_number, room_type: rm.rows[0].room_type, price: parseFloat(rm.rows[0].price) };
+        roomMeta = { room_number: rm.rows[0].room_number, price: parseFloat(rm.rows[0].price) };
       }
     }
 
@@ -175,7 +175,7 @@ router.post('/', async (req: Request, res) => {
           currency || 'UGX',
           balanceAfter,
           roomMeta.room_number,
-          roomMeta.room_type,
+          null,
           new Date().toLocaleString(),
           hostelName,
           currentUser.name,

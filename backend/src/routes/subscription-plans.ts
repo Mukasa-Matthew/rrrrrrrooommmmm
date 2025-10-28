@@ -56,25 +56,50 @@ router.post('/', async (req, res) => {
 
     const { name, description, duration_months, price_per_month } = req.body;
     
-    if (!name || !description || !duration_months || !price_per_month) {
+    if (!name || !description || duration_months === undefined || price_per_month === undefined) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    const total_price = duration_months * price_per_month;
+    // Validate and parse numbers
+    const duration = Number(duration_months);
+    const pricePerMonth = Number(price_per_month);
+
+    if (isNaN(duration) || isNaN(pricePerMonth)) {
+      return res.status(400).json({ success: false, message: 'Duration and price must be valid numbers' });
+    }
+
+    if (duration < 1) {
+      return res.status(400).json({ success: false, message: 'Duration must be at least 1 month' });
+    }
+
+    if (pricePerMonth < 0) {
+      return res.status(400).json({ success: false, message: 'Price per month must be 0 or greater' });
+    }
+
+    const total_price = duration * pricePerMonth;
     
     const plan = await SubscriptionPlanModel.create({
-      name,
-      description,
-      duration_months,
-      price_per_month,
+      name: name.trim(),
+      description: description.trim(),
+      duration_months: duration,
+      price_per_month: pricePerMonth,
       total_price,
       is_active: true
     });
 
     res.status(201).json({ success: true, plan });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating subscription plan:', error);
-    res.status(500).json({ success: false, message: 'Failed to create subscription plan' });
+    
+    // Handle database constraint violations
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'A subscription plan with this name already exists' });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to create subscription plan' 
+    });
   }
 });
 

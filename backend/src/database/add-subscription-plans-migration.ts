@@ -42,39 +42,6 @@ async function addSubscriptionPlansMigration() {
       ADD COLUMN IF NOT EXISTS current_subscription_id INTEGER REFERENCES hostel_subscriptions(id);
     `);
 
-    // Insert default subscription plans
-    const defaultPlans = [
-      {
-        name: 'Semester Plan',
-        description: '4 months subscription - perfect for academic semesters',
-        duration_months: 4,
-        price_per_month: 250000,
-        total_price: 1000000
-      },
-      {
-        name: 'Half Year Plan',
-        description: '6 months subscription - great for extended periods',
-        duration_months: 6,
-        price_per_month: 240000,
-        total_price: 1440000
-      },
-      {
-        name: 'Full Year Plan',
-        description: '12 months subscription - best value for long-term use',
-        duration_months: 12,
-        price_per_month: 200000,
-        total_price: 2400000
-      }
-    ];
-
-    for (const plan of defaultPlans) {
-      await pool.query(`
-        INSERT INTO subscription_plans (name, description, duration_months, price_per_month, total_price)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT DO NOTHING
-      `, [plan.name, plan.description, plan.duration_months, plan.price_per_month, plan.total_price]);
-    }
-
     // Create indexes for performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_hostel_subscriptions_hostel_id ON hostel_subscriptions(hostel_id);
